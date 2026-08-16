@@ -1,4 +1,4 @@
-﻿annotated-doc==0.0.4
+annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.14.2
 click==8.4.2
@@ -15,7 +15,7 @@ joblib==1.5.3
 kiwisolver==1.5.0
 matplotlib==3.11.1
 narwhals==2.24.0
-numpy==2.5.1
+numpy==2.4.6
 packaging==26.2
 pandas==3.0.3
 pillow==12.3.0
@@ -36,7 +36,7 @@ typing-inspection==0.4.2
 typing_extensions==4.16.0
 tzdata==2026.3
 uvicorn==0.51.0
-reportlab==4.5.2
+reportlab==4.5.1
 openpyxl==3.1.5
 python-pptx==1.0.2
 resend==0.32.0
