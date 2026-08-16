@@ -29,6 +29,16 @@ def create_user(
     return user
 
 
+def update_user_password(db: Session, email: str, new_hashed_password: str) -> bool:
+    user = db.query(User).filter(User.email == email.lower()).first()
+    if user:
+        user.hashed_password = new_hashed_password
+        db.commit()
+        db.refresh(user)
+        return True
+    return False
+
+
 def save_dataset(
     db: Session,
     filename: str,

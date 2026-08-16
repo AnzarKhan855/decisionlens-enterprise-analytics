@@ -21,7 +21,8 @@ def get_logger(name: str) -> logging.Logger:
     file_handler = RotatingFileHandler(
         os.path.join(log_dir, "decisionlens.log"),
         maxBytes=10 * 1024 * 1024,
-        backupCount=5
+        backupCount=5,
+        delay=True
     )
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)

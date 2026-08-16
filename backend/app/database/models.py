@@ -17,7 +17,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("role IN ('ADMIN', 'ANALYST', 'USER')", name="ck_user_role"),
+        CheckConstraint("role IN ('SUPER_ADMIN', 'ORGANIZATION_ADMIN', 'EMPLOYEE', 'ADMIN', 'ANALYST', 'USER')", name="ck_user_role"),
     )
 
     datasets = relationship("Dataset", back_populates="owner", cascade="all, delete-orphan")

@@ -12,11 +12,116 @@ from app.core.security import SecurityManager
 from app.core.rbac import SUPER_ADMIN, ORGANIZATION_ADMIN, EMPLOYEE, normalize_role, ROLES, PERMISSIONS, ROLE_PERMISSIONS
 from app.services.email_service import ResendEmailService
 from app.database.connection import SessionLocal
-from app.database.crud import get_user_by_email, create_user, create_otp_token, get_valid_otp_token, invalidate_otp_tokens, create_password_reset_token, get_valid_reset_token, invalidate_reset_token
+from app.database.crud import get_user_by_email, create_user, update_user_password, create_otp_token, get_valid_otp_token, invalidate_otp_tokens, create_password_reset_token, get_valid_reset_token, invalidate_reset_token
 from app.database.models import OTPToken, PasswordResetToken
 from app.logging.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class UserRegisterRequest(BaseModel):
+    email: str
+    password: str
+    full_name: str
+    organization: Optional[str] = None
+    role: Optional[str] = EMPLOYEE
+
+
+class UserLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class OTPVerifyRequest(BaseModel):
+    email: str
+    otp_code: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    reset_token: str
+    new_password: str
+
+
+router = APIRouter(
+    tags=["Authentication & Users"]
+)
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest):
+    email_clean = body.email.strip().lower()
+    user = _get_or_create_user(email_clean)
+    if not user:
+        return {
+            "message": "If an account exists with this email, a password reset link has been sent.",
+            "email_sent": False
+        }
+
+    reset_token = secrets.token_urlsafe(32)
+
+    db = SessionLocal()
+    try:
+        invalidate_reset_token(db, email_clean)
+        create_password_reset_token(db, email_clean, reset_token, expiry_seconds=3600)
+    except Exception as e:
+        logger.warning("[Reset Token DB Warning] %s", e)
+    finally:
+        db.close()
+
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+    is_sent = False
+    logger.info(f"[RESET] user_found={bool(user)}")
+    logger.info("[RESET] token_persisted=true")
+    logger.info("[RESET] email_send_attempted=true")
+    try:
+        is_sent = ResendEmailService.send_password_reset_email(email_clean, reset_link)
+    except Exception as err:
+        logger.warning("[Forgot Password Resend API Warning] %s", err)
+
+    logger.info(f"[RESET] provider_accepted={is_sent}")
+    logger.info(f"[RESET] provider_message_id_present={bool(ResendEmailService.last_resend_id)}")
+
+    return {
+        "message": "If an account exists with this email, a password reset link has been sent.",
+        "email_sent": is_sent
+    }
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest):
+    if not body.reset_token:
+        raise HTTPException(status_code=400, detail="Reset token is required.")
+
+    if not body.new_password or len(body.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+
+    db = SessionLocal()
+    try:
+        record = get_valid_reset_token(db, body.reset_token)
+        if not record:
+            raise HTTPException(status_code=400, detail="Invalid or expired password reset link. Please request a new link.")
+
+        email = record.email
+        hashed = SecurityManager.hash_password(body.new_password)
+
+        updated = update_user_password(db, email, hashed)
+        if not updated:
+            raise HTTPException(status_code=404, detail="User account not found.")
+
+        invalidate_reset_token(db, body.reset_token)
+    finally:
+        db.close()
+
+    try:
+        ResendEmailService.send_password_changed_email(email)
+    except Exception as err:
+        logger.warning("[Password Changed Resend API Warning] %s", err)
+
+    return {"message": "Password updated successfully. Please sign in with your new password."}
 
 router = APIRouter(
     tags=["Authentication & Users"]
@@ -51,6 +156,24 @@ def _get_or_create_user(email: str, password_fallback: Optional[str] = None, rol
     db = SessionLocal()
     try:
         db_user = get_user_by_email(db, email_clean)
+        if not db_user and settings.SUPER_ADMIN_EMAIL and email_clean == settings.SUPER_ADMIN_EMAIL.lower():
+            admin_pwd = settings.SUPER_ADMIN_PASSWORD or "admin123"
+            hashed = SecurityManager.hash_password(admin_pwd)
+            try:
+                db_user = create_user(
+                    db,
+                    email=email_clean,
+                    hashed_password=hashed,
+                    full_name="Super Administrator",
+                    role=SUPER_ADMIN,
+                    organization="DecisionLens Enterprise"
+                )
+                logger.info("[Auto-Seed SUPER_ADMIN] Successfully created SuperAdmin account for %s", email_clean)
+            except Exception as seed_err:
+                db.rollback()
+                logger.warning("[Auto-Seed SUPER_ADMIN Warning] %s", seed_err)
+                db_user = get_user_by_email(db, email_clean)
+
         if db_user:
             user_record = {
                 "email": db_user.email,
@@ -69,31 +192,6 @@ def _get_or_create_user(email: str, password_fallback: Optional[str] = None, rol
     return None
 
 
-class UserRegisterRequest(BaseModel):
-    email: str
-    password: str
-    full_name: str
-    organization: Optional[str] = None
-    role: Optional[str] = EMPLOYEE
-
-
-class UserLoginRequest(BaseModel):
-    email: str
-    password: str
-
-
-class OTPVerifyRequest(BaseModel):
-    email: str
-    otp_code: str
-
-
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-
-class ResetPasswordRequest(BaseModel):
-    reset_token: str
-    new_password: str
 
 
 @router.get("/email-status")
@@ -146,9 +244,19 @@ def register_user(body: UserRegisterRequest):
 
     db = SessionLocal()
     try:
-        create_user(db, email_clean, hashed, body.full_name, role=assigned_role, organization=org_name)
+        new_user = create_user(db, email_clean, hashed, body.full_name, role=assigned_role, organization=org_name)
+        if not new_user or not new_user.id:
+            raise HTTPException(status_code=500, detail="Database verification failed: User object missing ID.")
+        logger.info(f"[REGISTER VERIFIED] User persisted in DB: id={new_user.id}, email={new_user.email}, role={new_user.role}")
+    except HTTPException:
+        raise
     except Exception as db_err:
-        logger.warning("[Register DB Warning] %s", db_err)
+        db.rollback()
+        logger.error("[Register DB Error] Failed to insert user '%s': %s", email_clean, db_err)
+        err_msg = str(db_err)
+        if "UNIQUE constraint failed" in err_msg or "already exists" in err_msg.lower():
+            raise HTTPException(status_code=409, detail="User with this email address already exists.")
+        raise HTTPException(status_code=500, detail=f"Database user creation failed: {err_msg}")
     finally:
         db.close()
 
@@ -338,56 +446,6 @@ def verify_otp_code(body: OTPVerifyRequest):
     }
 
 
-@router.post("/forgot-password")
-def forgot_password(body: ForgotPasswordRequest):
-    email_clean = body.email.strip().lower()
-    user = _get_or_create_user(email_clean)
-    if not user:
-        return {"message": "If an account exists with this email, a password reset link has been sent."}
-
-    reset_token = secrets.token_urlsafe(32)
-
-    db = SessionLocal()
-    try:
-        create_password_reset_token(db, email_clean, reset_token, expiry_seconds=3600)
-    except Exception as e:
-        logger.warning("[Reset Token DB Warning] %s", e)
-    finally:
-        db.close()
-
-    return {
-        "message": "If an account exists with this email, a password reset link has been sent."
-    }
-
-
-@router.post("/reset-password")
-def reset_password(body: ResetPasswordRequest):
-    db = SessionLocal()
-    try:
-        record = get_valid_reset_token(db, body.reset_token)
-        if not record:
-            raise HTTPException(status_code=400, detail="Invalid or expired password reset link.")
-
-        if len(body.new_password) < 6:
-            raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
-
-        email = record.email
-        user = _get_or_create_user(email)
-        if user:
-            hashed = SecurityManager.hash_password(body.new_password)
-            user["password_hash"] = hashed
-
-        invalidate_reset_token(db, body.reset_token)
-        db.commit()
-    finally:
-        db.close()
-
-    try:
-        ResendEmailService.send_password_changed_email(email)
-    except Exception as err:
-        logger.warning("[Password Changed Resend API Warning] %s", err)
-
-    return {"message": "Password updated successfully. Please sign in with your new password."}
 
 
 class RefreshTokenRequest(BaseModel):

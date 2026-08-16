@@ -2,6 +2,9 @@ import time
 from typing import Optional, Dict, Any
 
 from app.core.config import settings
+from app.logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 try:
     import resend
@@ -36,9 +39,9 @@ class ResendEmailService:
         start_time = time.time()
         masked_key = settings.get_masked_resend_key()
 
-        if not cls.is_configured():
+        if not cls.is_configured() or not resend:
             cls.last_send_status = "Unconfigured / Dev Mode"
-            cls.last_error_msg = "Resend API unconfigured or dev mode. Fast local fallback active."
+            cls.last_error_msg = "Resend API unconfigured, missing module, or dev mode. Fast local fallback active."
             logger.info(f"[ResendEmailService Local Mode] Key: {masked_key} | Recipient: {to_email} | Status: Instant Local Fallback")
             return False
 

@@ -78,15 +78,23 @@ api.interceptors.response.use(
     } else if (!error.response) {
       error.message = "Unable to connect to the server. Please ensure the backend is running.";
     } else if (error.response.status === 401) {
-      if (typeof window !== "undefined") {
+      const reqUrl = error.config?.url || "";
+      const isAuthEndpoint = reqUrl.includes("/auth/login") || reqUrl.includes("/auth/register") || reqUrl.includes("/auth/forgot-password") || reqUrl.includes("/auth/reset-password") || reqUrl.includes("/auth/verify-otp");
+
+      if (typeof window !== "undefined" && !isAuthEndpoint) {
         localStorage.removeItem("decisionlens_access_token");
         localStorage.removeItem("decisionlens_refresh_token");
         localStorage.removeItem("decisionlens_user");
       }
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      if (typeof window !== "undefined" && !isAuthEndpoint && !window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }
-      error.message = "Session expired. Please sign in again.";
+
+      if (isAuthEndpoint) {
+        error.message = error.response?.data?.detail || error.response?.data?.message || "Invalid credentials or authentication request failed.";
+      } else {
+        error.message = "Session expired. Please sign in again.";
+      }
     } else if (error.response.status === 404) {
       error.message = "The requested resource was not found.";
     } else if (error.response.status === 500) {
