@@ -1,58 +1,70 @@
-import pandas as pd
+from pathlib import Path
+from typing import Any, Dict
+
+from app.database.duckdb_engine import DuckDBEngine
+from app.ingestion.semantic_profiler import SemanticDataProfiler
 
 
 class DataValidator:
+    """
+    Validates Parquet datasets via DuckDB to assess missing values, empty strings,
+    numeric anomalies, and compute an overall dataset Health Score (0-100).
+    """
 
     @staticmethod
-    def validate(df: pd.DataFrame):
+    def validate(parquet_path: Path) -> Dict[str, Any]:
+        profile = SemanticDataProfiler.profile(parquet_path)
+        total_rows = profile["total_rows"]
 
-        report = {
-            "missing_values": df.isnull().sum().to_dict(),
+        health_score = 100
+        issues = []
 
-            "duplicate_rows": int(df.duplicated().sum()),
+        missing_summary = {}
+        negative_summary = {}
+        empty_string_summary = {}
 
-            "negative_numeric_values": {},
+        for col_name, meta in profile["columns"].items():
+            null_pct = meta["null_percentage"]
+            null_cnt = meta["null_count"]
+            missing_summary[col_name] = null_cnt
 
-            "empty_strings": {},
+            if null_pct > 50:
+                health_score -= 15
+                issues.append(f"Column '{col_name}' has >50% missing values ({null_pct}%).")
+            elif null_pct > 20:
+                health_score -= 5
 
-            "invalid_dates": {},
+            # Check numeric negatives if measure
+            if meta["category"] == "measure" and "stats" in meta:
+                min_val = meta["stats"].get("min")
+                if min_val is not None and min_val < 0:
+                    col_esc = f'"{col_name}"'
+                    path_str = str(parquet_path).replace("\\", "/")
+                    sql = f"SELECT COUNT(*) as neg_cnt FROM read_parquet('{path_str}') WHERE {col_esc} < 0"
+                    neg_cnt = int(DuckDBEngine.query(sql)[0]["neg_cnt"])
+                    if neg_cnt > 0:
+                        negative_summary[col_name] = neg_cnt
+                        health_score -= 5
+                        issues.append(f"Measure '{col_name}' contains {neg_cnt} negative values.")
 
-            "health_score": 100
+            # Check empty strings if dimension
+            if meta["category"] in ["dimension", "identifier"] and "VARCHAR" in meta["data_type"].upper():
+                col_esc = f'"{col_name}"'
+                path_str = str(parquet_path).replace("\\", "/")
+                sql = f"SELECT COUNT(*) as empty_cnt FROM read_parquet('{path_str}') WHERE TRIM({col_esc}) = ''"
+                empty_cnt = int(DuckDBEngine.query(sql)[0]["empty_cnt"])
+                if empty_cnt > 0:
+                    empty_string_summary[col_name] = empty_cnt
+                    health_score -= 3
+
+        health_score = max(0, min(100, health_score))
+
+        return {
+            "health_score": health_score,
+            "total_rows": total_rows,
+            "missing_values": missing_summary,
+            "negative_numeric_values": negative_summary,
+            "empty_strings": empty_string_summary,
+            "issues": issues,
+            "semantic_profile": profile
         }
-
-        # Check negative values
-        numeric_cols = df.select_dtypes(include="number").columns
-
-        for col in numeric_cols:
-            negatives = int((df[col] < 0).sum())
-            report["negative_numeric_values"][col] = negatives
-
-            if negatives > 0:
-                report["health_score"] -= 10
-
-        # Check empty strings
-        object_cols = df.select_dtypes(include=["object", "string"]).columns
-
-        for col in object_cols:
-            empty = int((df[col].astype(str).str.strip() == "").sum())
-
-            report["empty_strings"][col] = empty
-
-            if empty > 0:
-                report["health_score"] -= 5
-
-        # Check date columns
-        if "ds" in df.columns:
-
-            parsed = pd.to_datetime(df["ds"], errors="coerce")
-
-            invalid = int(parsed.isna().sum())
-
-            report["invalid_dates"]["ds"] = invalid
-
-            if invalid > 0:
-                report["health_score"] -= 10
-
-        report["health_score"] = max(report["health_score"], 0)
-
-        return report

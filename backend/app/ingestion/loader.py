@@ -2,28 +2,21 @@ import pandas as pd
 
 
 class DataLoader:
-
-    REQUIRED_COLUMNS = [
-        "item_id",
-        "date",
-        "sales"
-    ]
-
     @staticmethod
     def _preprocess(df: pd.DataFrame) -> pd.DataFrame:
         """
-        Common preprocessing pipeline
-        for all datasets.
+        Generic preprocessing pipeline for any dataset.
+        Auto-detects temporal columns and normalizes data types
+        without enforcing a fixed schema.
         """
 
         # -----------------------------
-        # Standardize column names FIRST
+        # Normalize column names (light touch)
         # -----------------------------
-
         rename_map = {
-            "unique_id": "item_id",
+            "unique_id": "unique_id",
             "ds": "date",
-            "y": "sales"
+            "y": "value",
         }
 
         df = df.rename(
@@ -35,51 +28,42 @@ class DataLoader:
         )
 
         # -----------------------------
-        # Date Processing
+        # Date Processing: auto-detect temporal columns
         # -----------------------------
-
-        if "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"])
-
-        # -----------------------------
-        # Validation
-        # -----------------------------
-
-        missing = [
-            col
-            for col in DataLoader.REQUIRED_COLUMNS
-            if col not in df.columns
+        temporal_candidates = [
+            "date", "timestamp", "created_at", "updated_at", "order_date",
+            "invoice_date", "delivery_date", "start_date", "end_date",
+            "month", "year", "quarter", "week",
         ]
+        detected_date_col = None
+        for col in df.columns:
+            if col.lower() in temporal_candidates:
+                detected_date_col = col
+                break
 
-        if missing:
-            raise ValueError(
-                f"Dataset missing required columns: {missing}"
-            )
+        if detected_date_col:
+            df[detected_date_col] = pd.to_datetime(df[detected_date_col], errors="coerce")
+            if detected_date_col != "date":
+                df["date"] = df[detected_date_col]
+            if "year" not in df.columns:
+                df["year"] = df[detected_date_col].dt.year
+            if "month" not in df.columns:
+                df["month"] = df[detected_date_col].dt.month
+            if "quarter" not in df.columns:
+                df["quarter"] = df[detected_date_col].dt.quarter
+            if "year_month" not in df.columns:
+                df["year_month"] = (
+                    df[detected_date_col]
+                    .dt.to_period("M")
+                    .astype(str)
+                )
 
         # -----------------------------
-        # Time Features
+        # Clean numeric columns
         # -----------------------------
-
-        df["year"] = df["date"].dt.year
-        df["month"] = df["date"].dt.month
-        df["quarter"] = df["date"].dt.quarter
-        df["year_month"] = (
-            df["date"]
-            .dt.to_period("M")
-            .astype(str)
-        )
-
-        # -----------------------------
-        # Clean data
-        # -----------------------------
-
-        df["sales"] = (
-            pd.to_numeric(
-                df["sales"],
-                errors="coerce"
-            )
-            .fillna(0)
-        )
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = pd.to_numeric(df[col], errors="coerce")
 
         return df
 

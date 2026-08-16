@@ -8,11 +8,29 @@ class DataProfiler:
 
         memory = df.memory_usage(deep=True).sum() / (1024 ** 2)
 
+        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+        categorical_cols = df.select_dtypes(include="object").columns.tolist()
+        datetime_cols = df.select_dtypes(
+            include=["datetime", "datetime64"]
+        ).columns.tolist()
+
         profile = {
+
+            # -----------------------------
+            # Basic Information
+            # -----------------------------
 
             "rows": len(df),
 
             "columns": len(df.columns),
+
+            "shape": list(df.shape),
+
+            "memory_usage_mb": round(memory, 2),
+
+            # -----------------------------
+            # Column Information
+            # -----------------------------
 
             "column_names": list(df.columns),
 
@@ -21,23 +39,76 @@ class DataProfiler:
                 for col, dtype in df.dtypes.items()
             },
 
+            # -----------------------------
+            # Missing Values
+            # -----------------------------
+
             "missing_values": df.isnull().sum().to_dict(),
 
-            "duplicate_rows": int(df.duplicated().sum()),
+            "missing_percentage": {
+                col: round(
+                    (df[col].isnull().mean()) * 100,
+                    2
+                )
+                for col in df.columns
+            },
 
-            "memory_usage_mb": round(memory, 2),
+            # -----------------------------
+            # Duplicate Rows
+            # -----------------------------
 
-            "numeric_columns": df.select_dtypes(
-                include="number"
-            ).columns.tolist(),
+            "duplicate_rows": int(
+                df.duplicated().sum()
+            ),
 
-            "categorical_columns": df.select_dtypes(
-                include="object"
-            ).columns.tolist(),
+            # -----------------------------
+            # Column Categories
+            # -----------------------------
 
-            "datetime_columns": df.select_dtypes(
-                include=["datetime", "datetime64"]
-            ).columns.tolist()
+            "numeric_columns": {
+                "count": len(numeric_cols),
+                "columns": numeric_cols
+            },
+
+            "categorical_columns": {
+                "count": len(categorical_cols),
+                "columns": categorical_cols
+            },
+
+            "datetime_columns": {
+                "count": len(datetime_cols),
+                "columns": datetime_cols
+            },
+
+            # -----------------------------
+            # Unique Values
+            # -----------------------------
+
+            "unique_values": {
+                col: int(df[col].nunique())
+                for col in df.columns
+            },
+
+            # -----------------------------
+            # Statistics
+            # -----------------------------
+
+            "statistics": (
+                df.describe(include="number")
+                .round(2)
+                .fillna(0)
+                .to_dict()
+            ),
+
+            # -----------------------------
+            # Preview
+            # -----------------------------
+
+            "preview": (
+                df.head(10)
+                .fillna("")
+                .to_dict(orient="records")
+            )
 
         }
 
