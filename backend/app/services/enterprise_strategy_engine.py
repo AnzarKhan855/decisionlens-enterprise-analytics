@@ -247,7 +247,8 @@ class EnterpriseStrategyEngine:
         )
 
     @classmethod
-    def _build_strategy_report(cls, workspace_id: str, analytics: Dict[str, Any], profile: Optional[Dict[str, Any]], con: Optional[duckdb.DuckDBPyConnection], table_name: Optional[str], generated_at: str) -> StrategyReport:
+    def _build_strategy_report(cls, workspace_id: str, analytics: Optional[Dict[str, Any]], profile: Optional[Dict[str, Any]], con: Optional[duckdb.DuckDBPyConnection], table_name: Optional[str], generated_at: str) -> StrategyReport:
+        analytics = analytics or {}
         domain = analytics.get("domain", "Generic Business")
         dataset_type = analytics.get("dataset_type", "Unknown")
 

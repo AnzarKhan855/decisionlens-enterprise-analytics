@@ -10,11 +10,16 @@ def get_explainable_ai_insights(workspace_id: Optional[str] = Query(None)):
     response = UniversalAIBrain.query(
         question="Generate explainable AI insights and business intelligence for this dataset.",
         workspace_id=workspace_id,
-    )
-    analytics = response.get("support", {}).get("analytics", {})
-    insights = analytics.get("critical_findings", []) + analytics.get("positive_findings", [])
+    ) or {}
+    support = response.get("support") or {}
+    analytics = support.get("analytics") if isinstance(support, dict) else {}
+    if not isinstance(analytics, dict):
+        analytics = {}
+    critical = analytics.get("critical_findings") or []
+    positive = analytics.get("positive_findings") or []
+    insights = critical + positive
     if not insights:
-        insights = response.get("evidence", [])
+        insights = response.get("evidence") or []
     return {
         "workspace_id": workspace_id or "active",
         "insights_count": len(insights),
@@ -29,7 +34,9 @@ def explain_specific_finding(body: Dict[str, Any] = Body(...)):
     response = UniversalAIBrain.query(
         question=f"Explain the finding: {finding}",
         workspace_id=ws_id,
-    )
+    ) or {}
+    support = response.get("support") or {}
+    reasoning = support.get("business_reasoning", "") if isinstance(support, dict) else ""
     return {
         "finding_queried": finding,
         "explanation_payload": {
@@ -37,6 +44,6 @@ def explain_specific_finding(body: Dict[str, Any] = Body(...)):
             "explanation": response.get("answer", ""),
             "evidence": response.get("evidence", []),
             "confidence": response.get("confidence", 0.0),
-            "reasoning": response.get("support", {}).get("business_reasoning", ""),
+            "reasoning": reasoning,
         }
     }

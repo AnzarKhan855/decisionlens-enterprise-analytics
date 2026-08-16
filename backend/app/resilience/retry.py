@@ -98,6 +98,17 @@ def with_retry(
                     return result
                 except exceptions as exc:
                     last_exception = exc
+                    exc_str = str(exc)
+                    if any(unretriable in exc_str for unretriable in ("Binder Error", "Catalog Error", "Parser Error", "not found in FROM clause")):
+                        log_with_context(
+                            logging.WARNING,
+                            f"[Retry] Non-retriable SQL error in {func.__name__}: {exc_str}",
+                            engine=func.__name__,
+                        )
+                        if fallback:
+                            return fallback()
+                        raise exc
+
                     if cb:
                         cb.record_failure()
                     log_with_context(

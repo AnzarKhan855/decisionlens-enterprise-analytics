@@ -303,20 +303,83 @@ class AnalyticsResult:
     errors: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
+        def _serialize(obj: Any) -> Any:
+            if hasattr(obj, "to_dict") and callable(obj.to_dict) and obj is not self:
+                return obj.to_dict()
+            elif isinstance(obj, dict):
+                return {k: _serialize(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple, set)):
+                return [_serialize(item) for item in obj]
+            elif hasattr(obj, "__dataclass_fields__"):
+                return {f: _serialize(getattr(obj, f)) for f in obj.__dataclass_fields__}
+            elif hasattr(obj, "__dict__"):
+                return {k: _serialize(v) for k, v in obj.__dict__.items()}
+            return obj
+
         result = {}
         for f in self.__dataclass_fields__:
             val = getattr(self, f)
-            if hasattr(val, "to_dict"):
-                result[f] = val.to_dict()
-            elif isinstance(val, list):
-                result[f] = [
-                    item.to_dict() if hasattr(item, "to_dict") else (
-                        {k: v for k, v in item.__dict__.items()} if hasattr(item, "__dict__") else item
-                    )
-                    for item in val
-                ]
-            elif hasattr(val, "__dict__"):
-                result[f] = {k: v for k, v in val.__dict__.items()}
-            else:
-                result[f] = val
+            result[f] = _serialize(val)
         return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> AnalyticsResult:
+        if not isinstance(data, dict):
+            return cls()
+        data_copy = dict(data)
+
+        def _instantiate(dc_cls: Any, d: Any) -> Any:
+            if not isinstance(d, dict):
+                return d
+            if hasattr(dc_cls, "__dataclass_fields__"):
+                known = set(dc_cls.__dataclass_fields__.keys())
+                filtered = {k: v for k, v in d.items() if k in known}
+                return dc_cls(**filtered)
+            return d
+
+        if "kpis" in data_copy and isinstance(data_copy["kpis"], list):
+            data_copy["kpis"] = [_instantiate(KPIMetric, k) for k in data_copy["kpis"]]
+        if "distributions" in data_copy and isinstance(data_copy["distributions"], dict):
+            data_copy["distributions"] = {
+                cat: [_instantiate(DistributionItem, item) for item in items]
+                for cat, items in data_copy["distributions"].items()
+                if isinstance(items, list)
+            }
+        if "trends" in data_copy and isinstance(data_copy["trends"], dict):
+            data_copy["trends"] = {
+                m: [_instantiate(TrendPoint, tp) for tp in points]
+                for m, points in data_copy["trends"].items()
+                if isinstance(points, list)
+            }
+        if "growth" in data_copy and isinstance(data_copy["growth"], list):
+            data_copy["growth"] = [_instantiate(GrowthDecline, g) for g in data_copy["growth"]]
+        if "decline" in data_copy and isinstance(data_copy["decline"], list):
+            data_copy["decline"] = [_instantiate(GrowthDecline, d) for d in data_copy["decline"]]
+        if "rankings" in data_copy and isinstance(data_copy["rankings"], dict):
+            data_copy["rankings"] = {
+                cat: [_instantiate(RankItem, item) for item in items]
+                for cat, items in data_copy["rankings"].items()
+                if isinstance(items, list)
+            }
+        if "root_causes" in data_copy and isinstance(data_copy["root_causes"], list):
+            data_copy["root_causes"] = [_instantiate(RootCause, rc) for rc in data_copy["root_causes"]]
+        if "correlations" in data_copy and isinstance(data_copy["correlations"], list):
+            data_copy["correlations"] = [_instantiate(Correlation, c) for c in data_copy["correlations"]]
+        if "anomalies" in data_copy and isinstance(data_copy["anomalies"], list):
+            data_copy["anomalies"] = [_instantiate(AnomalyItem, a) for a in data_copy["anomalies"]]
+        if "outliers" in data_copy and isinstance(data_copy["outliers"], list):
+            data_copy["outliers"] = [_instantiate(OutlierItem, o) for o in data_copy["outliers"]]
+        if "recommendations" in data_copy and isinstance(data_copy["recommendations"], list):
+            data_copy["recommendations"] = [_instantiate(RecommendationItem, rec) for rec in data_copy["recommendations"]]
+        if "risks" in data_copy and isinstance(data_copy["risks"], list):
+            data_copy["risks"] = [_instantiate(RiskItem, r) for r in data_copy["risks"]]
+        if "opportunities" in data_copy and isinstance(data_copy["opportunities"], list):
+            data_copy["opportunities"] = [_instantiate(OpportunityItem, o) for o in data_copy["opportunities"]]
+        if "health_score" in data_copy and isinstance(data_copy["health_score"], dict):
+            data_copy["health_score"] = _instantiate(HealthScore, data_copy["health_score"])
+        if "evidence_report" in data_copy and isinstance(data_copy["evidence_report"], dict):
+            data_copy["evidence_report"] = _instantiate(EvidenceReport, data_copy["evidence_report"])
+
+        known_fields = set(cls.__dataclass_fields__.keys())
+        filtered = {k: v for k, v in data_copy.items() if k in known_fields}
+        return cls(**filtered)

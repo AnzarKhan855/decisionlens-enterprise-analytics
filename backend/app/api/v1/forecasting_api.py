@@ -40,6 +40,22 @@ def _get_parquet_path(db, dataset_id: Optional[str] = None) -> Path:
     raise HTTPException(status_code=404, detail="No active business workspace found.")
 
 
+def _get_workspace_id(db, dataset_id: Optional[str] = None) -> str:
+    if dataset_id and dataset_id != "latest":
+        return dataset_id
+    try:
+        from app.services.workspace_service import EnterpriseWorkspaceManager
+        active_ws = EnterpriseWorkspaceManager.get_active_workspace_id()
+        if active_ws:
+            return active_ws
+    except Exception:
+        pass
+    latest = get_latest_dataset(db)
+    if latest:
+        return str(latest.workspace_id) if hasattr(latest, "workspace_id") else str(latest.id)
+    return "default"
+
+
 @router.get("/forecast")
 def get_time_series_forecast(
     dataset_id: Optional[str] = Query(None, description="Dataset ID"),
@@ -48,63 +64,69 @@ def get_time_series_forecast(
     db = SessionLocal()
     try:
         parquet_path = _get_parquet_path(db, dataset_id)
+        ws_id = _get_workspace_id(db, dataset_id)
         profile = SemanticDataProfiler.profile(parquet_path)
 
-        temporal = profile["column_categories"].get("temporal", [])
-        measures = profile["column_categories"].get("measures", [])
+        from app.services.analytics_cache_service import AnalyticsCacheService
+        from app.schemas.analytics import AnalyticsResult, Prediction
 
-        if not temporal or not measures:
-            return {
-                "dataset_id": dataset_id or "latest",
-                "forecast_available": False,
-                "reason": "Dataset lacks temporal and numeric columns required for ML forecasting.",
-                "forecast": []
-            }
+        analytics = None
+        c_dict = AnalyticsCacheService.get_cached(ws_id, parquet_path)
+        if c_dict:
+            try:
+                analytics = AnalyticsResult.from_dict(c_dict)
+            except Exception:
+                pass
 
-        # Build a minimal AnalyticsResult for the canonical engine
-        from app.analytics.universal_engine import UniversalAnalyticsEngine
-        from app.semantic_model import build_semantic_model
+        if analytics is None:
+            from app.analytics.universal_engine import UniversalAnalyticsEngine
+            from app.semantic_model import build_semantic_model
+            from app.semantic_model.core import SemanticModel
 
-        try:
-            ws_id = dataset_id or "default"
-            sm_dict = build_semantic_model(workspace_id=ws_id, force_rebuild=False)
-            if isinstance(sm_dict, dict):
-                sm = SemanticModel(
-                    workspace_id=ws_id,
-                    domain=sm_dict.get("domain", "Generic Business"),
-                    dataset_type=sm_dict.get("dataset_type", "Unknown"),
-                )
-            else:
-                sm = sm_dict
-        except Exception as exc:
-            logger.warning("[Forecasting] Semantic model build fallback: %s", exc)
-            sm = SemanticModel(workspace_id="default", domain="Generic Business", dataset_type="Unknown")
+            try:
+                sm_dict = build_semantic_model(workspace_id=ws_id, force_rebuild=False)
+                if isinstance(sm_dict, dict):
+                    sm = SemanticModel(
+                        workspace_id=ws_id,
+                        domain=sm_dict.get("domain", "Generic Business"),
+                        dataset_type=sm_dict.get("dataset_type", "Unknown"),
+                    )
+                else:
+                    sm = sm_dict
+            except Exception as exc:
+                logger.warning("[Forecasting] Semantic model build fallback: %s", exc)
+                sm = SemanticModel(workspace_id=ws_id, domain="Generic Business", dataset_type="Unknown")
 
-        analytics = UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path)
-        predictions = with_retry(
-            max_attempts=2,
-            backoff_factor=0.5,
-            exceptions=(Exception,),
-            circuit_breaker_name="forecast",
-            fallback=lambda: [],
-        )(lambda: UniversalPredictionEngine.generate(
-            analytics_result=analytics,
-            semantic_model=sm,
-        ))()
+            analytics = UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path, workspace_id=ws_id)
+
+        predictions = getattr(analytics, "predictions", []) or []
+        if not predictions:
+            from app.semantic_model.core import SemanticModel
+            sm = getattr(analytics, "semantic_model", None) or SemanticModel(workspace_id=ws_id)
+            predictions = with_retry(
+                max_attempts=2,
+                backoff_factor=0.5,
+                exceptions=(Exception,),
+                circuit_breaker_name="forecast",
+                fallback=lambda: [],
+            )(lambda: UniversalPredictionEngine.generate(
+                analytics_result=analytics,
+                semantic_model=sm,
+            ))()
 
         forecast_predictions = [
             {
-                "model_type": p.model_type,
-                "model_used": p.model_used,
-                "prediction": p.prediction,
-                "confidence": p.confidence,
-                "evidence": p.evidence,
-                "business_impact": p.business_impact,
-                "time_horizon": p.time_horizon,
-                "risk_level": p.risk_level,
-                "recommended_action": p.recommended_action,
-                "feasible": p.feasible,
-                "limitation": p.limitation,
+                "model_type": p.model_type if hasattr(p, "model_type") else p.get("model_type"),
+                "model_used": p.model_used if hasattr(p, "model_used") else p.get("model_used"),
+                "prediction": p.prediction if hasattr(p, "prediction") else p.get("prediction"),
+                "confidence": p.confidence if hasattr(p, "confidence") else p.get("confidence"),
+                "evidence": p.evidence if hasattr(p, "evidence") else p.get("evidence"),
+                "business_impact": p.business_impact if hasattr(p, "business_impact") else p.get("business_impact"),
+                "time_horizon": p.time_horizon if hasattr(p, "time_horizon") else p.get("time_horizon"),
+                "risk_level": p.risk_level if hasattr(p, "risk_level") else p.get("risk_level"),
+                "recommended_action": p.recommended_action if hasattr(p, "recommended_action") else p.get("recommended_action"),
+                "feasible": p.feasible if hasattr(p, "feasible") else p.get("feasible"),
+                "limitation": p.limitation if hasattr(p, "limitation") else p.get("limitation"),
             }
             for p in predictions
         ]
@@ -126,65 +148,72 @@ def get_customer_segmentation(
     db = SessionLocal()
     try:
         parquet_path = _get_parquet_path(db, dataset_id)
-        profile = SemanticDataProfiler.profile(parquet_path)
+        ws_id = _get_workspace_id(db, dataset_id)
 
-        temporal = profile["column_categories"].get("temporal", [])
-        measures = profile["column_categories"].get("measures", [])
+        from app.services.analytics_cache_service import AnalyticsCacheService
+        from app.schemas.analytics import AnalyticsResult
 
-        if not temporal or not measures:
-            return {
-                "dataset_id": dataset_id or "latest",
-                "segmentation_available": False,
-                "reason": "Dataset lacks temporal and numeric columns required for segmentation.",
-                "segments": []
-            }
+        analytics = None
+        c_dict = AnalyticsCacheService.get_cached(ws_id, parquet_path)
+        if c_dict:
+            try:
+                analytics = AnalyticsResult.from_dict(c_dict)
+            except Exception:
+                pass
 
-        # Build a minimal AnalyticsResult for the canonical engine
-        from app.analytics.universal_engine import UniversalAnalyticsEngine
-        from app.semantic_model import build_semantic_model
+        if analytics is None:
+            from app.analytics.universal_engine import UniversalAnalyticsEngine
+            from app.semantic_model import build_semantic_model
+            from app.semantic_model.core import SemanticModel
 
-        try:
-            ws_id = dataset_id or "default"
-            sm_dict = build_semantic_model(workspace_id=ws_id, force_rebuild=False)
-            if isinstance(sm_dict, dict):
-                sm = SemanticModel(
-                    workspace_id=ws_id,
-                    domain=sm_dict.get("domain", "Generic Business"),
-                    dataset_type=sm_dict.get("dataset_type", "Unknown"),
-                )
-            else:
-                sm = sm_dict
-        except Exception as exc:
-            logger.warning("[Forecasting] Semantic model build fallback: %s", exc)
-            sm = SemanticModel(workspace_id="default", domain="Generic Business", dataset_type="Unknown")
+            try:
+                sm_dict = build_semantic_model(workspace_id=ws_id, force_rebuild=False)
+                if isinstance(sm_dict, dict):
+                    sm = SemanticModel(
+                        workspace_id=ws_id,
+                        domain=sm_dict.get("domain", "Generic Business"),
+                        dataset_type=sm_dict.get("dataset_type", "Unknown"),
+                    )
+                else:
+                    sm = sm_dict
+            except Exception as exc:
+                logger.warning("[Forecasting] Semantic model build fallback: %s", exc)
+                sm = SemanticModel(workspace_id=ws_id, domain="Generic Business", dataset_type="Unknown")
 
-        analytics = UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path)
-        predictions = with_retry(
-            max_attempts=2,
-            backoff_factor=0.5,
-            exceptions=(Exception,),
-            circuit_breaker_name="forecast",
-            fallback=lambda: [],
-        )(lambda: UniversalPredictionEngine.generate(
-            analytics_result=analytics,
-            semantic_model=sm,
-        ))()
+            analytics = UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path, workspace_id=ws_id)
+
+        predictions = getattr(analytics, "predictions", []) or []
+        if not predictions:
+            from app.semantic_model.core import SemanticModel
+            sm = getattr(analytics, "semantic_model", None) or SemanticModel(workspace_id=ws_id)
+            predictions = with_retry(
+                max_attempts=2,
+                backoff_factor=0.5,
+                exceptions=(Exception,),
+                circuit_breaker_name="forecast",
+                fallback=lambda: [],
+            )(lambda: UniversalPredictionEngine.generate(
+                analytics_result=analytics,
+                semantic_model=sm,
+            ))()
 
         segment_predictions = [
             {
-                "model_type": p.model_type,
-                "model_used": p.model_used,
-                "prediction": p.prediction,
-                "confidence": p.confidence,
-                "evidence": p.evidence,
-                "business_impact": p.business_impact,
-                "time_horizon": p.time_horizon,
-                "risk_level": p.risk_level,
-                "recommended_action": p.recommended_action,
-                "feasible": p.feasible,
-                "limitation": p.limitation,
+                "model_type": p.model_type if hasattr(p, "model_type") else p.get("model_type"),
+                "model_used": p.model_used if hasattr(p, "model_used") else p.get("model_used"),
+                "prediction": p.prediction if hasattr(p, "prediction") else p.get("prediction"),
+                "confidence": p.confidence if hasattr(p, "confidence") else p.get("confidence"),
+                "evidence": p.evidence if hasattr(p, "evidence") else p.get("evidence"),
+                "business_impact": p.business_impact if hasattr(p, "business_impact") else p.get("business_impact"),
+                "time_horizon": p.time_horizon if hasattr(p, "time_horizon") else p.get("time_horizon"),
+                "risk_level": p.risk_level if hasattr(p, "risk_level") else p.get("risk_level"),
+                "recommended_action": p.recommended_action if hasattr(p, "recommended_action") else p.get("recommended_action"),
+                "feasible": p.feasible if hasattr(p, "feasible") else p.get("feasible"),
+                "limitation": p.limitation if hasattr(p, "limitation") else p.get("limitation"),
             }
-            for p in predictions if "Cohort" in p.model_type or "Segment" in p.model_type
+            for p in predictions
+            if ("Cohort" in (p.model_type if hasattr(p, "model_type") else p.get("model_type", "")) or
+                "Segment" in (p.model_type if hasattr(p, "model_type") else p.get("model_type", "")))
         ]
 
         return {

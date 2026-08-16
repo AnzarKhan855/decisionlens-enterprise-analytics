@@ -106,10 +106,20 @@ def _build_semantic_model(workspace_id: str):
 
 def _build_analytics_result(parquet_path, workspace_id: str):
     try:
+        from app.services.analytics_cache_service import AnalyticsCacheService
+        from app.schemas.analytics import AnalyticsResult
+
+        c_dict = AnalyticsCacheService.get_cached(workspace_id, parquet_path)
+        if c_dict:
+            try:
+                return AnalyticsResult.from_dict(c_dict)
+            except Exception:
+                pass
+
         from app.analytics.universal_engine import UniversalAnalyticsEngine
         from app.semantic_model.core import SemanticModel
         sm = SemanticModel(workspace_id=workspace_id, domain="Generic Business", dataset_type="Unknown")
-        return UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path)
+        return UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path, workspace_id=workspace_id)
     except Exception:
         return None
 

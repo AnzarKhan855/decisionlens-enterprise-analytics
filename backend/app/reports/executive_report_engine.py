@@ -845,13 +845,18 @@ class UniversalExecutiveReportEngine:
                 "concentration_pct": (max(values) / total * 100) if total > 0 else 0,
             })
 
+        def _get(obj: Any, attr: str, default: Any = "") -> Any:
+            if isinstance(obj, dict):
+                return obj.get(attr, default)
+            return getattr(obj, attr, default)
+
         return {
             "distributions": distributions[:5],
             "dimension_kpis": [
                 {
-                    "name": k.name,
-                    "value": k.formatted_value,
-                    "status": k.status,
+                    "name": _get(k, "name", ""),
+                    "value": _get(k, "formatted_value", ""),
+                    "status": _get(k, "status", "Derived from Dataset"),
                 }
                 for k in result.kpis[:5]
             ],
@@ -859,6 +864,11 @@ class UniversalExecutiveReportEngine:
 
     @staticmethod
     def _build_measure_rankings_section(result: AnalyticsResult) -> Dict[str, Any]:
+        def _get(obj: Any, attr: str, default: Any = "") -> Any:
+            if isinstance(obj, dict):
+                return obj.get(attr, default)
+            return getattr(obj, attr, default)
+
         rankings_list = []
         for measure, ranks in (result.rankings or {}).items():
             if not ranks:
@@ -867,10 +877,10 @@ class UniversalExecutiveReportEngine:
                 "measure": measure,
                 "top_3": [
                     {
-                        "rank": r.rank,
-                        "category": r.category,
-                        "value": r.value,
-                        "percentage": r.percentage,
+                        "rank": _get(r, "rank", 1),
+                        "category": _get(r, "category", ""),
+                        "value": _get(r, "value", 0.0),
+                        "percentage": _get(r, "percentage", 0.0),
                     }
                     for r in ranks[:3]
                 ],
@@ -880,10 +890,10 @@ class UniversalExecutiveReportEngine:
             "rankings": rankings_list[:3],
             "root_cause_insights": [
                 {
-                    "dimension": rc.dimension,
-                    "measure": rc.measure,
-                    "top_driver": rc.top_driver,
-                    "concentration_risk": rc.concentration_risk,
+                    "dimension": _get(rc, "dimension", ""),
+                    "measure": _get(rc, "measure", ""),
+                    "top_driver": _get(rc, "top_driver", ""),
+                    "concentration_risk": _get(rc, "concentration_risk", ""),
                 }
                 for rc in result.root_causes
             ][:3],

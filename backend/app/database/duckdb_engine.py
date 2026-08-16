@@ -160,6 +160,8 @@ class DuckDBEngine:
             with cls._lock:
                 cls._query_count += 1
                 cls._total_duration += elapsed
+                cls._conn = None
+            cls._thread_local.conn = None
             raise
 
     @classmethod
@@ -183,6 +185,8 @@ class DuckDBEngine:
             with cls._lock:
                 cls._query_count += 1
                 cls._total_duration += elapsed
+                cls._conn = None
+            cls._thread_local.conn = None
             raise
 
     @classmethod

@@ -291,6 +291,8 @@ class EnterpriseDecisionEngine:
 
     @classmethod
     def _get_or_compute_recommendations(cls, parquet_path: Path, profile: Dict[str, Any], analytics_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if analytics_dict and analytics_dict.get("recommendations"):
+            return analytics_dict["recommendations"]
         try:
             from app.analytics.recommendation_engine import RecommendationEngine
             recs = RecommendationEngine.generate_recommendations(parquet_path, profile)
@@ -348,12 +350,13 @@ class EnterpriseDecisionEngine:
                     "role": "Fact Table",
                     "columns": list(profile.get("columns", {}).keys()),
                 }]
-            table_profiles = {}
+            table_profiles = {parquet_path.stem: profile}
             for tbl in tables:
                 fp = tbl.get("file_path")
-                if fp:
+                tname = tbl.get("table_name")
+                if fp and tname and tname not in table_profiles:
                     try:
-                        table_profiles[tbl["table_name"]] = SemanticDataProfiler.profile(Path(fp))
+                        table_profiles[tname] = SemanticDataProfiler.profile(Path(fp))
                     except Exception:
                         continue
             return UniversalAIBrain._execute_evidence_query(

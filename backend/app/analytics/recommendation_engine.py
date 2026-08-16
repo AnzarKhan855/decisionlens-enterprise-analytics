@@ -7,6 +7,12 @@ from app.ai.explainable_ai_engine import ExplainableAIEngine
 from app.database.duckdb_engine import DuckDBEngine
 
 
+def _kpi_val(kpi: Any, attr: str = "value", default: Any = 0.0) -> Any:
+    if isinstance(kpi, dict):
+        return kpi.get(attr, default)
+    return getattr(kpi, attr, default)
+
+
 class MetricDetector:
     """
     Detects the true underlying business metric represented by dataset columns.
@@ -231,13 +237,12 @@ class RecommendationEngine:
         # 3. Low AOV — increase basket size
         # =====================================================================
         aov_kpi = kpi_map.get("Average Order Value")
-        if aov_kpi and aov_kpi.value > 0:
-            # Heuristic: if AOV < 50th percentile of typical retail datasets, flag
+        if aov_kpi and _kpi_val(aov_kpi, "value", 0.0) > 0:
             recommendations.append({
                 "id": "REC-AOV",
                 "title": "Increase Average Order Value (AOV)",
                 "problem": "Current AOV indicates limited basket size and weak cross-selling effectiveness.",
-                "evidence": f"AOV = {aov_kpi.formatted_value} (formula: {aov_kpi.formula}). Computed across {aov_kpi.rows_analyzed:,} records.",
+                "evidence": f"AOV = {_kpi_val(aov_kpi, 'formatted_value', '0.0')} (formula: {_kpi_val(aov_kpi, 'formula', 'N/A')}). Computed across {_kpi_val(aov_kpi, 'rows_analyzed', 0):,} records.",
                 "root_cause": "Customers purchasing single items without add-ons, bundles, or premium upgrades.",
                 "priority": "HIGH",
                 "business_impact": "Low AOV restricts revenue per transaction and increases customer acquisition cost burden.",
@@ -253,14 +258,14 @@ class RecommendationEngine:
         # =====================================================================
         repeat_kpi = kpi_map.get("Repeat Customers")
         customer_kpi = kpi_map.get("Total Customers")
-        if repeat_kpi and customer_kpi and customer_kpi.value > 0:
-            repeat_rate = repeat_kpi.value / customer_kpi.value
+        if repeat_kpi and customer_kpi and _kpi_val(customer_kpi, "value", 0.0) > 0:
+            repeat_rate = _kpi_val(repeat_kpi, "value", 0.0) / _kpi_val(customer_kpi, "value", 1.0)
             if repeat_rate < 0.3:
                 recommendations.append({
                     "id": "REC-RETENTION",
                     "title": "Launch Customer Retention Program",
                     "problem": f"Only {repeat_rate:.1%} of customers make repeat purchases — below healthy retail threshold (~30%).",
-                    "evidence": f"Repeat Customers: {repeat_kpi.formatted_value}, Total Customers: {customer_kpi.formatted_value}. Repeat rate = {repeat_rate:.1%}.",
+                    "evidence": f"Repeat Customers: {_kpi_val(repeat_kpi, 'formatted_value', '0')}, Total Customers: {_kpi_val(customer_kpi, 'formatted_value', '0')}. Repeat rate = {repeat_rate:.1%}.",
                     "root_cause": "Weak post-purchase engagement, absence of loyalty incentives, or suboptimal product-market fit for returning buyers.",
                     "priority": "HIGH",
                     "business_impact": f"Acquiring a new customer costs 5-25x more than retaining an existing one. Current churn is eroding LTV.",
@@ -276,17 +281,17 @@ class RecommendationEngine:
         # =====================================================================
         freight_kpi = kpi_map.get("Freight Ratio")
         revenue_kpi = kpi_map.get("Total Revenue") or kpi_map.get("Total Revenue (Computed)")
-        if freight_kpi and revenue_kpi and revenue_kpi.value > 0:
-            freight_ratio = freight_kpi.value / revenue_kpi.value
+        if freight_kpi and revenue_kpi and _kpi_val(revenue_kpi, "value", 0.0) > 0:
+            freight_ratio = _kpi_val(freight_kpi, "value", 0.0) / _kpi_val(revenue_kpi, "value", 1.0)
             if freight_ratio > 0.15:
                 recommendations.append({
                     "id": "REC-FREIGHT",
                     "title": "Optimize Shipping Costs and Freight Ratio",
                     "problem": f"Freight ratio of {freight_ratio:.1%} exceeds healthy retail benchmark (<15% of revenue).",
-                    "evidence": f"Freight Ratio: {freight_kpi.formatted_value}. Total Revenue: {revenue_kpi.formatted_value}. Ratio = {freight_ratio:.1%}.",
+                    "evidence": f"Freight Ratio: {_kpi_val(freight_kpi, 'formatted_value', '0')}. Total Revenue: {_kpi_val(revenue_kpi, 'formatted_value', '0')}. Ratio = {freight_ratio:.1%}.",
                     "root_cause": "High per-unit shipping costs, suboptimal carrier contracts, excessive packaging, or low average order value inflating per-order freight.",
                     "priority": "HIGH",
-                    "business_impact": f"Every 1% reduction in freight ratio on {revenue_kpi.formatted_value} revenue saves ~{revenue_kpi.value * 0.01:,.2f}.",
+                    "business_impact": f"Every 1% reduction in freight ratio on {_kpi_val(revenue_kpi, 'formatted_value', '0')} revenue saves ~{_kpi_val(revenue_kpi, 'value', 0.0) * 0.01:,.2f}.",
                     "expected_gain": "Optimizing freight to <12% of revenue could improve gross margin by 3-5 points.",
                     "recommended_action": "Renegotiate carrier SLAs, introduce free-shipping thresholds, optimize packaging dimensions/weight, regional fulfillment center allocation, and carrier mix diversification.",
                     "affected_products": [],
@@ -298,18 +303,18 @@ class RecommendationEngine:
         # 6. High discount ratio — review pricing strategy
         # =====================================================================
         discount_kpi = kpi_map.get("Discount Ratio")
-        if discount_kpi and revenue_kpi and revenue_kpi.value > 0:
-            discount_ratio = discount_kpi.value / revenue_kpi.value
+        if discount_kpi and revenue_kpi and _kpi_val(revenue_kpi, "value", 0.0) > 0:
+            discount_ratio = _kpi_val(discount_kpi, "value", 0.0) / _kpi_val(revenue_kpi, "value", 1.0)
             if discount_ratio > 0.10:
                 recommendations.append({
                     "id": "REC-DISCOUNT",
                     "title": "Review Discount and Promotion Strategy",
                     "problem": f"Discount ratio of {discount_ratio:.1%} is eroding margin and may devalue brand positioning.",
-                    "evidence": f"Discount Ratio: {discount_kpi.formatted_value}. Total Revenue: {revenue_kpi.formatted_value}. Ratio = {discount_ratio:.1%}.",
+                    "evidence": f"Discount Ratio: {_kpi_val(discount_kpi, 'formatted_value', '0')}. Total Revenue: {_kpi_val(revenue_kpi, 'formatted_value', '0')}. Ratio = {discount_ratio:.1%}.",
                     "root_cause": "Excessive promotional depth, unoptimized coupon codes, or systematic markdowns to move slow inventory.",
                     "priority": "MEDIUM",
                     "business_impact": f"High discounting reduces effective revenue and trains customers to wait for sales, suppressing full-price conversion.",
-                    "expected_gain": "Reducing discount ratio by 2-3 points could recover margin equivalent to {revenue_kpi.value * 0.02:,.2f}.",
+                    "expected_gain": "Reducing discount ratio by 2-3 points could recover margin equivalent to {_kpi_val(revenue_kpi, 'value', 0.0) * 0.02:,.2f}.",
                     "recommended_action": "Implement dynamic pricing rules, restrict blanket promotions to high-intent segments, introduce loyalty-exclusive discounts, and monitor discount-to-revenue elasticity weekly.",
                     "affected_products": [],
                     "affected_categories": [],
@@ -320,14 +325,14 @@ class RecommendationEngine:
         # 7. Low profit margin — cost optimization
         # =====================================================================
         profit_kpi = kpi_map.get("Total Profit") or kpi_map.get("Profit Margin")
-        if profit_kpi and revenue_kpi and revenue_kpi.value > 0:
-            profit_margin = profit_kpi.value / revenue_kpi.value if profit_kpi.value != revenue_kpi.value else 0.0
+        if profit_kpi and revenue_kpi and _kpi_val(revenue_kpi, "value", 0.0) > 0:
+            profit_margin = _kpi_val(profit_kpi, "value", 0.0) / _kpi_val(revenue_kpi, "value", 1.0) if _kpi_val(profit_kpi, "value", 0.0) != _kpi_val(revenue_kpi, "value", 0.0) else 0.0
             if profit_margin < 0.10:
                 recommendations.append({
                     "id": "REC-PROFIT",
                     "title": "Optimize Cost Structure to Improve Profit Margin",
                     "problem": f"Profit margin of {profit_margin:.1%} is below healthy retail threshold (>10%).",
-                    "evidence": f"Profit: {profit_kpi.formatted_value}. Revenue: {revenue_kpi.formatted_value}. Margin = {profit_margin:.1%}.",
+                    "evidence": f"Profit: {_kpi_val(profit_kpi, 'formatted_value', '0')}. Revenue: {_kpi_val(revenue_kpi, 'formatted_value', '0')}. Margin = {profit_margin:.1%}.",
                     "root_cause": "Elevated COGS, uncontrolled operating expenses, high freight/discount ratios, or underperforming low-margin product mix.",
                     "priority": "CRITICAL",
                     "business_impact": f"Thin margins reduce reinvestment capacity and increase vulnerability to demand shocks.",

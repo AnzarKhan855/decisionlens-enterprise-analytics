@@ -230,7 +230,15 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
         cached = _dashboard_cache.get(cache_key, workspace_id=active_ws)
         if cached is not None:
             if return_analytics_result:
-                return cached, None
+                analytics_obj = None
+                try:
+                    from app.services.analytics_cache_service import AnalyticsCacheService
+                    c_dict = AnalyticsCacheService.get_cached(active_ws, parquet_path)
+                    if c_dict:
+                        analytics_obj = AnalyticsResult.from_dict(c_dict)
+                except Exception:
+                    pass
+                return cached, analytics_obj
             return cached
 
         sem_model = {}

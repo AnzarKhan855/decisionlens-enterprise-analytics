@@ -51,6 +51,12 @@ def _safe_float(val: Any, fallback: float = 0.0) -> float:
         return fallback
 
 
+def _get_val(obj: Any, attr: str, default: Any = None) -> Any:
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
 def _is_genuine_zero(val: Any) -> bool:
     if val is None:
         return False
@@ -242,15 +248,15 @@ def build_trend_cards(trends: Dict[str, List[Any]]) -> List[TrendCard]:
     for measure, points in trends.items():
         if not points:
             continue
-        vals = [float(p.value) for p in points if _safe_float(p.value) is not None]
+        vals = [float(_get_val(p, "value")) for p in points if _safe_float(_get_val(p, "value")) is not None]
         if not vals:
             continue
-        up = sum(1 for p in points if _safe_float(getattr(p, "change_pct", None)) > 0)
-        down = sum(1 for p in points if _safe_float(getattr(p, "change_pct", None)) < 0)
+        up = sum(1 for p in points if _safe_float(_get_val(p, "change_pct")) > 0)
+        down = sum(1 for p in points if _safe_float(_get_val(p, "change_pct")) < 0)
         latest = points[-1]
-        latest_val = _safe_float(latest.value, 0.0)
+        latest_val = _safe_float(_get_val(latest, "value"), 0.0)
         chart_data = [
-            {"period": _safe_str(p.period, ""), "value": _safe_float(p.value, 0.0)}
+            {"period": _safe_str(_get_val(p, "period"), ""), "value": _safe_float(_get_val(p, "value"), 0.0)}
             for p in points
         ]
         cards.append(TrendCard(

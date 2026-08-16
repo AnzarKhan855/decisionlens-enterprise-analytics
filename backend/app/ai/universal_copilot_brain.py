@@ -170,16 +170,12 @@ class UniversalAIBrain:
                 if p.name.startswith(("sample-", "unified_", "tmp_")):
                     continue
                 try:
-                    profile = SemanticDataProfiler.profile(p)
-                    row_count = profile.get("total_rows", 0)
-                    measures = profile.get("column_categories", {}).get("measures", [])
-                    temporal = profile.get("column_categories", {}).get("temporal", [])
                     p_stem = p.stem.lower().replace("-", "_")
                     ws_prefix_bonus = 10000000 if p_stem.startswith(clean_ws + "__") else 0
-                    has_temporal = bool(temporal)
-                    has_measures = bool(measures)
-                    combined_bonus = 5000000 if (has_temporal and has_measures) else 0
-                    score = ws_prefix_bonus + combined_bonus + (500000 if has_temporal else 0) + len(measures) * 10000 + row_count
+                    row_count = tbl.get("rows") or tbl.get("row_count") or 0
+                    cols = tbl.get("columns") or tbl.get("cols") or []
+                    col_count = len(cols)
+                    score = ws_prefix_bonus + col_count * 10000 + row_count
                     if score > best_score:
                         best_score = score
                         best_path = p
@@ -362,8 +358,9 @@ class UniversalAIBrain:
     @classmethod
     def _run_universal_analytics(cls, semantic_model: SemanticModel, parquet_path: Path) -> Optional[Dict[str, Any]]:
         try:
+            ws_id = getattr(semantic_model, "workspace_id", "") or ""
             from app.analytics.universal_engine import UniversalAnalyticsEngine
-            result = UniversalAnalyticsEngine.analyze(semantic_model, parquet_path=parquet_path)
+            result = UniversalAnalyticsEngine.analyze(semantic_model, parquet_path=parquet_path, workspace_id=ws_id)
             return result.to_dict()
         except Exception as e:
             return None

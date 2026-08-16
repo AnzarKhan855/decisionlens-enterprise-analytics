@@ -24,6 +24,15 @@ router = APIRouter(
 
 def _get_report_data(dataset_id: Optional[str] = None):
     try:
+        from app.services.workspace_service import EnterpriseWorkspaceManager
+        active_ws = dataset_id or EnterpriseWorkspaceManager.get_active_workspace_id() or "latest"
+        try:
+            cached_doc = mongo_reports.find_one({"dataset_id": active_ws, "report_type": "executive"})
+            if cached_doc and cached_doc.get("report"):
+                return cached_doc["report"]
+        except Exception:
+            pass
+
         dashboard, analytics_result = get_dynamic_dashboard(
             dataset_id=dataset_id,
             return_analytics_result=True
@@ -83,6 +92,14 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
     from app.services.workspace_service import EnterpriseWorkspaceManager
 
     try:
+        active_ws = dataset_id or EnterpriseWorkspaceManager.get_active_workspace_id() or "latest"
+        try:
+            cached_doc = mongo_reports.find_one({"dataset_id": active_ws, "audience": audience})
+            if cached_doc and cached_doc.get("report"):
+                return cached_doc["report"]
+        except Exception:
+            pass
+
         dashboard, analytics_result = get_dynamic_dashboard(
             dataset_id=dataset_id,
             return_analytics_result=True

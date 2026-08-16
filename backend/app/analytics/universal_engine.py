@@ -74,6 +74,16 @@ class UniversalAnalyticsEngine:
         if not path or not path.exists():
             return cls._empty_result(semantic_model, workspace_id, "No dataset available for analysis")
 
+        ws_id = workspace_id or getattr(semantic_model, "workspace_id", None) or dataset_id or ""
+        if ws_id:
+            try:
+                from app.services.analytics_cache_service import AnalyticsCacheService
+                cached_dict = AnalyticsCacheService.get_cached(ws_id, path)
+                if cached_dict:
+                    return AnalyticsResult.from_dict(cached_dict)
+            except Exception as exc:
+                logger.debug("[UniversalAnalytics] Cache lookup failed: %s", exc)
+
         if profile is None:
             try:
                 from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
@@ -439,6 +449,14 @@ class UniversalAnalyticsEngine:
             generated_at=datetime.now(timezone.utc).isoformat(),
             errors=errors,
         )
+
+        if ws_id:
+            try:
+                from app.services.analytics_cache_service import AnalyticsCacheService
+                AnalyticsCacheService.set_cached(ws_id, result.to_dict(), path)
+            except Exception as exc:
+                logger.debug("[UniversalAnalytics] Cache set failed: %s", exc)
+
         return result
 
     # =========================================================================

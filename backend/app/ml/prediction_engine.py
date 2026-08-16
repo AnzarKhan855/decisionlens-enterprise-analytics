@@ -10,6 +10,12 @@ from app.logging.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _get_item_attr(item: Any, attr: str, default: Any = None) -> Any:
+    if isinstance(item, dict):
+        return item.get(attr, default)
+    return getattr(item, attr, default)
+
+
 class UniversalPredictionEngine:
     """
     DecisionLens Universal Prediction Engine.
@@ -135,6 +141,14 @@ class UniversalPredictionEngine:
             temporal = [tc.column for tc in getattr(semantic_model, "time_columns", [])]
         if not temporal and isinstance(evidence, dict):
             temporal = evidence.get("temporal_columns", []) or evidence.get("temporal", []) or []
+        if not temporal:
+            # Check trends keys or summary statistics keys against DATE_COLUMN_ALIASES
+            candidate_cols = list(trends.keys()) if isinstance(trends, dict) else []
+            for c in candidate_cols:
+                c_clean = c.lower().replace("-", "_").replace(" ", "_")
+                if any(alias in c_clean for alias in cls.DATE_COLUMN_ALIASES):
+                    temporal.append(c)
+                    break
 
         # Filter identifier columns from measures
         valid_measures = cls._filter_valid_measures(measures)
@@ -242,8 +256,8 @@ class UniversalPredictionEngine:
         m_col = trend_measures[0]
         t_col = temporal[0]
         pts = trends[m_col]
-        vals = [float(p.value) for p in pts if p.value is not None]
-        periods = [str(p.period) for p in pts]
+        vals = [float(_get_item_attr(p, "value")) for p in pts if _get_item_attr(p, "value") is not None]
+        periods = [str(_get_item_attr(p, "period")) for p in pts]
 
         if len(vals) < cls.MIN_OBSERVATIONS_FOR_TS:
             logger.info("[Forecast] Temporal forecasting unavailable: only %d valid time-series observations.", len(vals))
@@ -414,7 +428,7 @@ class UniversalPredictionEngine:
         if m_col not in trends or len(trends[m_col]) < 5:
             return None
         pts = trends[m_col]
-        vals = [float(p.value) for p in pts if p.value is not None]
+        vals = [float(_get_item_attr(p, "value")) for p in pts if _get_item_attr(p, "value") is not None]
         if len(vals) < 5:
             return None
 
@@ -507,7 +521,7 @@ class UniversalPredictionEngine:
         if m_col not in trends or len(trends[m_col]) < 3:
             return None
         pts = trends[m_col]
-        vals = [float(p.value) for p in pts if p.value is not None]
+        vals = [float(_get_item_attr(p, "value")) for p in pts if _get_item_attr(p, "value") is not None]
         if len(vals) < 3:
             return None
 
@@ -615,7 +629,7 @@ class UniversalPredictionEngine:
         if m_col not in trends or len(trends[m_col]) < 3:
             return None
         pts = trends[m_col]
-        vals = [float(p.value) for p in pts if p.value is not None]
+        vals = [float(_get_item_attr(p, "value")) for p in pts if _get_item_attr(p, "value") is not None]
         if len(vals) < 3:
             return None
 
@@ -708,8 +722,8 @@ class UniversalPredictionEngine:
         m_col = trend_measures[0]
         t_col = temporal[0]
         pts = trends[m_col]
-        vals = [float(p.value) for p in pts if p.value is not None]
-        periods = [str(p.period) for p in pts]
+        vals = [float(_get_item_attr(p, "value")) for p in pts if _get_item_attr(p, "value") is not None]
+        periods = [str(_get_item_attr(p, "period")) for p in pts]
 
         if len(vals) < cls.MIN_OBSERVATIONS_FOR_TS:
             return None
@@ -1039,7 +1053,7 @@ class UniversalPredictionEngine:
         m_col = measures[0]
         if m_col in trends and len(trends[m_col]) >= cls.MIN_OBSERVATIONS_FOR_REGRESSION:
             pts = trends[m_col]
-            vals = [float(p.value) for p in pts if p.value is not None]
+            vals = [float(_get_item_attr(p, "value")) for p in pts if _get_item_attr(p, "value") is not None]
             if len(vals) < cls.MIN_OBSERVATIONS_FOR_REGRESSION:
                 return None
             x = list(range(len(vals)))
