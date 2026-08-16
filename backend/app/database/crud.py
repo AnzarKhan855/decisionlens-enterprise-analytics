@@ -1,7 +1,7 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.database.models import Dataset, User, OTPToken, PasswordResetToken
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
@@ -140,7 +140,7 @@ def delete_dataset_permanently(db: Session, identifier: str, file_paths: Optiona
 
 
 def create_otp_token(db: Session, email: str, hashed_otp: str, expiry_seconds: int = 300) -> OTPToken:
-    expiry = datetime.utcnow() + timedelta(seconds=expiry_seconds)
+    expiry = datetime.now(UTC) + timedelta(seconds=expiry_seconds)
     token = OTPToken(email=email.lower(), hashed_otp=hashed_otp, expiry=expiry, attempts=0)
     db.add(token)
     db.commit()
@@ -149,7 +149,7 @@ def create_otp_token(db: Session, email: str, hashed_otp: str, expiry_seconds: i
 
 
 def get_valid_otp_token(db: Session, email: str, hashed_otp: str) -> Optional[OTPToken]:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     return db.query(OTPToken).filter(
         OTPToken.email == email.lower(),
         OTPToken.hashed_otp == hashed_otp,
@@ -163,7 +163,7 @@ def invalidate_otp_tokens(db: Session, email: str):
 
 
 def create_password_reset_token(db: Session, email: str, token: str, expiry_seconds: int = 3600) -> PasswordResetToken:
-    expiry = datetime.utcnow() + timedelta(seconds=expiry_seconds)
+    expiry = datetime.now(UTC) + timedelta(seconds=expiry_seconds)
     reset_token = PasswordResetToken(email=email.lower(), token=token, expiry=expiry)
     db.add(reset_token)
     db.commit()
@@ -172,7 +172,7 @@ def create_password_reset_token(db: Session, email: str, token: str, expiry_seco
 
 
 def get_valid_reset_token(db: Session, token: str) -> Optional[PasswordResetToken]:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     return db.query(PasswordResetToken).filter(
         PasswordResetToken.token == token,
         PasswordResetToken.expiry > now,

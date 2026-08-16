@@ -1,7 +1,10 @@
 import os
 import shutil
+import logging
 from pathlib import Path
 from typing import Tuple, Optional, List
+
+logger = logging.getLogger(__name__)
 
 # Standard directory for storing uploaded dataset parquet files
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

@@ -39,7 +39,7 @@ class ScenarioSimulateRequest(BaseModel):
     changes: List[ScenarioChange]
 
 
-def _get_parquet_path(db, dataset_id: Optional[str] = None):
+def _get_parquet_path(db, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
     if dataset_id and dataset_id != "latest":
         direct = ParquetStorageManager.get_parquet_path(dataset_id)
         if direct and direct.exists():
@@ -47,6 +47,11 @@ def _get_parquet_path(db, dataset_id: Optional[str] = None):
         workspace_path = ParquetStorageManager.get_parquet_path_for_workspace(dataset_id)
         if workspace_path and workspace_path.exists():
             return workspace_path
+
+    if workspace_id:
+        ws_path = ParquetStorageManager.get_parquet_path_for_workspace(workspace_id)
+        if ws_path and ws_path.exists():
+            return ws_path
 
     try:
         from app.services.workspace_service import EnterpriseWorkspaceManager

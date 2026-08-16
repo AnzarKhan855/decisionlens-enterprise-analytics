@@ -7,7 +7,7 @@ import traceback
 import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime
+from datetime import UTC, datetime
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Query, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
 
@@ -221,7 +221,7 @@ async def upload_workspace_zip(
                         "domain": detected_domain,
                         "sha256_hash": file_sha256,
                         "created_by": created_by,
-                        "updated_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.now(UTC).isoformat(),
                     }
                 },
                 upsert=True,
@@ -271,7 +271,7 @@ async def upload_workspace_zip(
                             "columns": len(cols),
                             "file_type": df_path.suffix.lstrip(".").lower(),
                             "workspace_id": ws_id,
-                            "uploaded_at": datetime.utcnow().isoformat(),
+                            "uploaded_at": datetime.now(UTC).isoformat(),
                         }
                     },
                     upsert=True,
@@ -440,7 +440,7 @@ async def upload_workspace_folder(
                             "columns": len(cols),
                             "file_type": ext.lstrip("."),
                             "workspace_id": ws_id,
-                            "uploaded_at": datetime.utcnow().isoformat(),
+                            "uploaded_at": datetime.now(UTC).isoformat(),
                         }
                     },
                     upsert=True,

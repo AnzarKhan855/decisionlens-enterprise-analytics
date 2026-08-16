@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from pathlib import Path
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.intelligence.schemas import (
     ColumnIntelligence,
@@ -114,7 +114,7 @@ class DatasetIntelligenceLayer:
             domain_confidence=domain_confidence,
             domain_reason=domain_reason,
             dataset_type=dataset_type,
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             columns=columns,
             data_quality=data_quality,
             profile=intelligence_profile,

@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Depends
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.ai.enterprise_decision_engine import EnterpriseDecisionEngine
 from app.ai.universal_copilot_brain import UniversalAIBrain
@@ -116,7 +116,7 @@ def universal_analyst_query(body: UniversalQueryRequest):
             "domain": "Unknown",
             "status": "error",
             "error": "Empty question",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         }
 
     ws_id = body.workspace_id or body.dataset_id
@@ -166,7 +166,7 @@ def universal_analyst_query(body: UniversalQueryRequest):
                 "answer": engine_res.get("answer", ""),
                 "domain": supp_dict.get("domain") or engine_res.get("domain") or "Generic",
                 "confidence": engine_res.get("confidence", 0.95),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
         except Exception as mongo_exc:
             logger.warning("[MongoDB Copilot History] %s", mongo_exc)
@@ -199,7 +199,7 @@ def universal_analyst_query(body: UniversalQueryRequest):
             "domain": supp_dict.get("domain") or engine_res.get("domain") or "Generic",
             "status": engine_res.get("status", "success"),
             "error": engine_res.get("error"),
-            "timestamp": engine_res.get("timestamp", datetime.utcnow().isoformat()),
+            "timestamp": engine_res.get("timestamp", datetime.now(UTC).isoformat()),
         }
     except Exception as exc:
         total_ms = (time.perf_counter() - request_start) * 1000

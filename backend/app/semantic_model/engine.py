@@ -1,6 +1,6 @@
 import json
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.semantic_model.core import (
@@ -323,7 +323,7 @@ class SemanticModelEngine:
                 "domain_matched_columns": domain_info.get("matched_columns", []),
                 "dataset_type": dataset_type_info.get("dataset_type", "Unknown"),
                 "dataset_type_confidence": dataset_type_info.get("dataset_type_confidence", 0.0),
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "primary_fact_table": primary_fact,
                 "tables_count": len(tables_meta),
                 "active_joins_count": len(relationships),

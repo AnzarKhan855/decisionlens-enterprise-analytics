@@ -1,7 +1,7 @@
 import secrets
 import time
 import hashlib
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, Header, Depends
@@ -138,8 +138,9 @@ def _cleanup_expired_entries() -> None:
 
     db = SessionLocal()
     try:
-        db.query(OTPToken).filter(OTPToken.expiry < datetime.utcnow()).delete(synchronize_session=False)
-        db.query(PasswordResetToken).filter(PasswordResetToken.expiry < datetime.utcnow()).delete(synchronize_session=False)
+        now_utc = datetime.now(UTC)
+        db.query(OTPToken).filter(OTPToken.expiry < now_utc).delete(synchronize_session=False)
+        db.query(PasswordResetToken).filter(PasswordResetToken.expiry < now_utc).delete(synchronize_session=False)
         db.commit()
     except Exception:
         pass

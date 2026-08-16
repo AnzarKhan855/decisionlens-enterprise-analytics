@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, CheckConstraint
 from sqlalchemy.orm import declarative_base, relationship
-from datetime import datetime
+from datetime import UTC, datetime
 
 Base = declarative_base()
 
@@ -14,7 +14,7 @@ class User(Base):
     full_name = Column(String, nullable=False)
     organization = Column(String, default="Enterprise Corp")
     role = Column(String, default="USER", nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
         CheckConstraint("role IN ('SUPER_ADMIN', 'ORGANIZATION_ADMIN', 'EMPLOYEE', 'ADMIN', 'ANALYST', 'USER')", name="ck_user_role"),
@@ -37,7 +37,7 @@ class Dataset(Base):
     file_size_bytes = Column(Integer, default=0)
     status = Column(String, default="Analyzed", nullable=False)
     tags = Column(String, default="")
-    uploaded_at = Column(DateTime, default=datetime.utcnow, index=True)
+    uploaded_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
     __table_args__ = (
         CheckConstraint("status IN ('Uploaded', 'Analyzing', 'Analyzed', 'Error')", name="ck_dataset_status"),
@@ -53,7 +53,7 @@ class AuditLog(Base):
     user_email = Column(String, nullable=False)
     action = Column(String, nullable=False)
     details = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
 
 class OTPToken(Base):
@@ -64,7 +64,7 @@ class OTPToken(Base):
     hashed_otp = Column(String, nullable=False)
     expiry = Column(DateTime, nullable=False)
     attempts = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class PasswordResetToken(Base):
@@ -74,4 +74,4 @@ class PasswordResetToken(Base):
     email = Column(String, nullable=False, index=True)
     token = Column(String, nullable=False, unique=True)
     expiry = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))

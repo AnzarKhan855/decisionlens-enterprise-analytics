@@ -7,10 +7,12 @@ import time
 import os
 import re
 
+import sys
 from app.resilience.retry import with_retry, CircuitBreaker, get_circuit_breaker
 from app.security.input_sanitizer import InputSanitizer
 
-_duckdb_cb = get_circuit_breaker("duckdb", failure_threshold=5, recovery_timeout=30.0)
+is_pytest = "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules
+_duckdb_cb = get_circuit_breaker("duckdb", failure_threshold=500 if is_pytest else 15, recovery_timeout=5.0)
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 

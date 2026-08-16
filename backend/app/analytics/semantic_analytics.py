@@ -79,7 +79,9 @@ class SemanticAnalyticsEngine:
             CAST({t_esc} AS VARCHAR) as period,
             {agg}({m_esc}) as value
         FROM read_parquet('{path_str}')
-        WHERE {t_esc} IS NOT NULL
+        WHERE {t_esc} IS NOT NULL 
+          AND TRIM(CAST({t_esc} AS VARCHAR)) != '' 
+          AND LOWER(TRIM(CAST({t_esc} AS VARCHAR))) NOT IN ('none', 'null', 'nan', 'nat')
         GROUP BY CAST({t_esc} AS VARCHAR)
         ORDER BY period ASC
         """

@@ -21,9 +21,34 @@ class SemanticDataProfiler:
         "id", "uuid", "guid", "code", "number", "no", "index", "key", "pk", "fk",
         "invoiceno", "stockcode", "customerid", "orderid", "transid", "sku", "receiptno"
     }
-    DATE_KEYWORDS = {"date", "time", "timestamp", "year", "month", "day", "quarter", "dt", "created", "updated"}
-
     IDENTIFIER_SUFFIXES = {"_id", "id", "no", "code", "sku", "uuid", "key"}
+    TEMPORAL_EXACT_NAMES = {
+        "date", "order_date", "transaction_date", "created_at", "updated_at",
+        "timestamp", "datetime", "invoicedate", "orderdate", "transactiondate",
+        "createdat", "updatedat", "dt", "time_stamp"
+    }
+
+    @classmethod
+    def is_temporal_column(cls, column_name: str, duckdb_type: str) -> bool:
+        type_upper = duckdb_type.upper()
+        if any(dt in type_upper for dt in ["DATE", "TIME", "TIMESTAMP", "DATETIME"]):
+            return True
+
+        # Numeric columns (BIGINT, INTEGER, DOUBLE, etc.) represent quantities or durations unless named 'year'/'timestamp'
+        numeric_types = ["BIGINT", "INTEGER", "SMALLINT", "TINYINT", "DOUBLE", "FLOAT", "DECIMAL", "HUGEINT", "REAL"]
+        if any(nt in type_upper for nt in numeric_types):
+            col_lower = column_name.lower().strip()
+            return col_lower in {"year", "timestamp", "epoch_time", "unix_timestamp"}
+
+        col_clean = re.sub(r"[^a-z0-9]", "", column_name.lower())
+        for kw in cls.TEMPORAL_EXACT_NAMES:
+            kw_clean = re.sub(r"[^a-z0-9]", "", kw)
+            if col_clean == kw_clean or col_clean.endswith(kw_clean):
+                return True
+
+        if any(col_clean.endswith(kw) for kw in ["date", "datetime", "timestamp"]):
+            return True
+        return False
 
     @staticmethod
     def classify_table(filename: str, total_rows: int, measures: List[str], dimensions: List[str], columns: List[str]) -> Dict[str, Any]:
@@ -41,12 +66,9 @@ class SemanticDataProfiler:
         from app.semantic_model.measure_detector import MEASURE_AGGREGATION_MAP as _MEASURE_AGGREGATION_MAP
         _MEASURE_KEYWORDS = set(_MEASURE_AGGREGATION_MAP.get("sum", []) + _MEASURE_AGGREGATION_MAP.get("avg", []))
 
+        if cls.is_temporal_column(column_name, duckdb_type):
+            return "temporal"
         col_clean = re.sub(r"[^a-z0-9]", "", column_name.lower())
-        type_upper = duckdb_type.upper()
-        if any(dt in type_upper for dt in ["DATE", "TIME", "TIMESTAMP"]):
-            return "temporal"
-        if any(kw in col_clean for kw in ["date", "timestamp", "datetime", "invoicedate", "orderdate"]):
-            return "temporal"
         if any(col_clean.endswith(s) or s == col_clean for s in cls.IDENTIFIER_SUFFIXES):
             return "identifier"
         if any(kw in col_clean for kw in _MEASURE_KEYWORDS):
@@ -54,6 +76,7 @@ class SemanticDataProfiler:
         uniqueness_ratio = distinct_count / total_rows if total_rows > 0 else 0
         if uniqueness_ratio > 0.85:
             return "identifier"
+        type_upper = duckdb_type.upper()
         numeric_types = ["BIGINT", "INTEGER", "SMALLINT", "TINYINT", "DOUBLE", "FLOAT", "DECIMAL", "HUGEINT", "REAL"]
         if any(nt in type_upper for nt in numeric_types):
             if distinct_count <= 10 and not any(kw in col_clean for kw in _MEASURE_KEYWORDS):
@@ -77,8 +100,8 @@ class SemanticDataProfiler:
         classified_columns = {"measures": [], "dimensions": [], "temporal": [], "identifiers": []}
         columns_profile = {}
 
-        temporal_cols = [c[0] for c in columns if any(dt in c[1].upper() for dt in ["DATE", "TIME", "TIMESTAMP"])]
-        numeric_cols = [c[0] for c in columns if any(nt in c[1].upper() for nt in ["BIGINT", "INTEGER", "SMALLINT", "TINYINT", "DOUBLE", "FLOAT", "DECIMAL", "HUGEINT", "REAL"])]
+        temporal_cols = [c[0] for c in columns if cls.is_temporal_column(c[0], c[1])]
+        numeric_cols = [c[0] for c in columns if c[0] not in temporal_cols and any(nt in c[1].upper() for nt in ["BIGINT", "INTEGER", "SMALLINT", "TINYINT", "DOUBLE", "FLOAT", "DECIMAL", "HUGEINT", "REAL"])]
         other_cols = [c[0] for c in columns if c[0] not in temporal_cols and c[0] not in numeric_cols]
 
         def _safe_key(c: str) -> str:

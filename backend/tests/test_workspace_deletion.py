@@ -78,12 +78,12 @@ def _login_super_admin() -> str:
     try:
         _invalidate(db, SUPER_ADMIN_EMAIL)
         from app.database.crud import create_otp_token
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
         from app.database.models import OTPToken
         otp = OTPToken(
             email=SUPER_ADMIN_EMAIL,
             hashed_otp=hashed_otp,
-            expiry=datetime.utcnow() + timedelta(seconds=300),
+            expiry=datetime.now(UTC) + timedelta(seconds=300),
             attempts=0,
         )
         db.add(otp)

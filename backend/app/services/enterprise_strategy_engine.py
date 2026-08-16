@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import UTC, datetime
 
 import duckdb
 
@@ -120,13 +120,19 @@ class EnterpriseStrategyEngine:
 
     @classmethod
     def analyze(cls, workspace_id: str) -> Dict[str, Any]:
-        now = datetime.utcnow().isoformat()
+        now_dt = datetime.now(UTC)
+        now = now_dt.isoformat()
         try:
             existing = strategy_reports.find_one({"workspace_id": workspace_id}, sort=[("generated_at", -1)])
-            if existing and (datetime.utcnow() - datetime.fromisoformat(existing.get("generated_at", now))).total_seconds() < 300:
-                if "_id" in existing:
-                    existing["_id"] = str(existing["_id"])
-                return existing
+            if existing:
+                gen_at_str = existing.get("generated_at", now)
+                gen_dt = datetime.fromisoformat(gen_at_str)
+                if gen_dt.tzinfo is None:
+                    gen_dt = gen_dt.replace(tzinfo=UTC)
+                if (now_dt - gen_dt).total_seconds() < 300:
+                    if "_id" in existing:
+                        existing["_id"] = str(existing["_id"])
+                    return existing
         except Exception:
             pass
 
@@ -782,7 +788,7 @@ class EnterpriseStrategyEngine:
         briefing = {
             "workspace_id": workspace_id,
             "role": role,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "headline": exec_summary.get("headline", ""),
             "executive_summary": exec_summary.get("key_findings", [""])[0] if exec_summary.get("key_findings") else "",
             "top_3_recommendations": [r.get("title", "") for r in recommendations[:3]],
@@ -814,7 +820,7 @@ class EnterpriseStrategyEngine:
             decision_trees.insert_one({
                 "workspace_id": workspace_id,
                 "decision_tree": dt,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             })
         except Exception as exc:
             logger.warning("[StrategyEngine] Decision tree insert failed: %s", exc)
@@ -835,7 +841,7 @@ class EnterpriseStrategyEngine:
             "medium_severity": sum(1 for r in risks if r.get("severity") == "MEDIUM"),
             "low_severity": sum(1 for r in risks if r.get("severity") == "LOW"),
             "risks": risks,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
         try:
@@ -858,7 +864,7 @@ class EnterpriseStrategyEngine:
             "total_opportunities": len(opps),
             "high_priority": sum(1 for o in opps if o.get("priority") == "HIGH"),
             "opportunities": opps,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
         try:

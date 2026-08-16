@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 
 from app.ai.explainable_ai_engine import ExplainableAIEngine
@@ -672,6 +672,22 @@ class UniversalAnalyticsEngine:
         return distributions
 
     @staticmethod
+    def _normalize_period(row: Dict[str, Any], index: int) -> str:
+        """
+        Normalizes period identifier from a data row using a canonical precedence order:
+        'period', 'date', 'order_date', 'timestamp', 'time', 'label', 'datetime'.
+        Returns a clean ISO/string representation if present; otherwise returns 'Period {index}'.
+        """
+        if isinstance(row, dict):
+            for key in ("period", "date", "order_date", "timestamp", "time", "label", "datetime"):
+                val = row.get(key)
+                if val is not None:
+                    val_str = str(val).strip()
+                    if val_str and val_str.lower() not in ("none", "null", "nan", "nat", ""):
+                        return val_str
+        return f"Period {index}"
+
+    @staticmethod
     def _compute_trends(path: Path, profile: Dict[str, Any], temporal: List[str], measures: List[str]) -> Dict[str, List[TrendPoint]]:
         trends: Dict[str, List[TrendPoint]] = {}
         stage = "trends_computation"
@@ -688,7 +704,7 @@ class UniversalAnalyticsEngine:
                     continue
                 pts = []
                 for i, r in enumerate(rows):
-                    period_str = str(r.get("period") or r.get("label") or r.get("date") or f"Period {i}")
+                    period_str = UniversalAnalyticsEngine._normalize_period(r, i)
                     val = float(r.get("value", 0) or 0)
                     prev_val = float(rows[i - 1].get("value", 0) or 0) if i > 0 else 0.0
                     change_pct = None
@@ -724,8 +740,8 @@ class UniversalAnalyticsEngine:
                     if prev == 0:
                         continue
                     pct = round((curr - prev) / prev * 100, 2)
-                    period = rows[i].get("period") or rows[i].get("label") or rows[i].get("date") or f"Period {i}"
-                    item = GrowthDecline(period=str(period), value=curr, previous_value=prev, change_pct=pct, direction="growth" if pct > 0 else "decline")
+                    period_str = UniversalAnalyticsEngine._normalize_period(rows[i], i)
+                    item = GrowthDecline(period=period_str, value=curr, previous_value=prev, change_pct=pct, direction="growth" if pct > 0 else "decline")
                     if pct > 5:
                         growth.append(item)
                     elif pct < -5:
@@ -1504,7 +1520,7 @@ class UniversalAnalyticsEngine:
             domain=semantic_model.domain or "Generic Business",
             dataset_type=semantic_model.dataset_type or "Unknown",
             semantic_model=semantic_model,
-            generated_at=datetime.utcnow().isoformat(),
+            generated_at=datetime.now(UTC).isoformat(),
             errors=[reason],
             health_score=HealthScore(overall_score=0.0, grade="N/A", status="No Data"),
         )

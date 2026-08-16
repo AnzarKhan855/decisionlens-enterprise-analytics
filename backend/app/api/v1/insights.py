@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException, Query
 
 from app.database.connection import SessionLocal
@@ -52,7 +52,7 @@ def get_insights(dataset_id: Optional[str] = Query(None, description="Dataset ID
                         "domain": response.get("support", {}).get("domain"),
                         "confidence": response.get("confidence"),
                         "insights": insights,
-                        "generated_at": datetime.utcnow().isoformat(),
+                        "generated_at": datetime.now(UTC).isoformat(),
                     }
                 },
                 upsert=True,

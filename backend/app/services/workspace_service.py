@@ -1,8 +1,11 @@
 import os
 import json
 import uuid
+import logging
 from typing import Dict, Any, List, Optional
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from app.database.connection import SessionLocal
 from app.database.crud import delete_dataset_permanently

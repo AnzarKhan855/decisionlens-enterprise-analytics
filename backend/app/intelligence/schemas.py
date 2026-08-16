@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
 
@@ -19,6 +19,9 @@ class ColumnIntelligence:
     null_percentage: float = 0.0
     distinct_count: int = 0
 
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
 
 @dataclass
 class DataQualityIntelligence:
@@ -33,6 +36,9 @@ class DataQualityIntelligence:
     outlier_percentage: float = 0.0
     issues: List[str] = field(default_factory=list)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
 
 @dataclass
 class CapabilityMatrix:
@@ -41,6 +47,9 @@ class CapabilityMatrix:
     confidence: str
     reason: str
 
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
 
 @dataclass
 class MLRecommendation:
@@ -48,6 +57,9 @@ class MLRecommendation:
     algorithm: str
     status: str
     reason: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
@@ -65,6 +77,9 @@ class DatasetIntelligenceProfile:
     capability_matrix: List[CapabilityMatrix] = field(default_factory=list)
     business_questions: List[str] = field(default_factory=list)
     ml_recommendations: List[MLRecommendation] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
@@ -94,31 +109,4 @@ class DatasetIntelligenceResult:
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "workspace_id": self.workspace_id,
-            "status": self.status,
-            "domain": self.domain,
-            "domain_confidence": self.domain_confidence,
-            "domain_reason": self.domain_reason,
-            "dataset_type": self.dataset_type,
-            "generated_at": self.generated_at,
-            "columns": [c.__dict__ for c in self.columns],
-            "data_quality": self.data_quality.__dict__,
-            "profile": {
-                "detected_domain": self.profile.detected_domain,
-                "confidence_pct": self.profile.confidence_pct,
-                "reasoning": self.profile.reasoning,
-                "matched_columns": self.profile.matched_columns,
-                "detected_entities": self.profile.detected_entities,
-                "detected_measures": self.profile.detected_measures,
-                "detected_dimensions": self.profile.detected_dimensions,
-                "detected_temporal": self.profile.detected_temporal,
-                "total_records": self.profile.total_records,
-                "total_columns": self.profile.total_columns,
-                "capability_matrix": [c.__dict__ for c in self.profile.capability_matrix],
-                "business_questions": self.profile.business_questions,
-                "ml_recommendations": [m.__dict__ for m in self.profile.ml_recommendations],
-            },
-            "semantic_model": self.semantic_model,
-            "error": self.error,
-        }
+        return asdict(self)
