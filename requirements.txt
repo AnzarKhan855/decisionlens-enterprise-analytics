@@ -1,44 +1,42 @@
-﻿annotated-doc==0.0.4
-annotated-types==0.7.0
-anyio==4.14.2
-click==8.4.2
-colorama==0.4.6
-contourpy==1.3.3
-cycler==0.12.1
-duckdb==1.5.4
-fastapi==0.139.2
-fonttools==4.63.0
-greenlet==3.5.3
-h11==0.16.0
-idna==3.18
-joblib==1.5.3
-kiwisolver==1.5.0
-matplotlib==3.11.1
-narwhals==2.24.0
-numpy==2.4.6
-packaging==26.2
-pandas==3.0.3
-pillow==12.3.0
-plotly==6.9.0
-psycopg2-binary==2.9.12
-pyarrow==25.0.0
-pydantic==2.13.4
-pydantic_core==2.46.4
-pyparsing==3.3.2
-python-dateutil==2.9.0.post0
-scikit-learn==1.9.0
-scipy==1.18.0
-six==1.17.0
-SQLAlchemy==2.0.51
-starlette==1.3.1
-threadpoolctl==3.6.0
-typing-inspection==0.4.2
-typing_extensions==4.16.0
-tzdata==2026.3
-uvicorn==0.51.0
-reportlab==4.5.1
-openpyxl==3.1.5
-python-pptx==1.0.2
-resend==0.32.0
-pymongo==4.11.3
+﻿# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
 
+# Core Web Framework
+fastapi>=0.110.0,<1.0.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic>=2.7.0,<3.0.0
+pydantic-settings>=2.2.0
+starlette>=0.37.0
+
+# Database & Storage
+SQLAlchemy>=2.0.0
+psycopg2-binary>=2.9.9
+pymongo>=4.6.0
+duckdb>=1.0.0
+redis>=5.0.0
+
+# Data Science & Analytics
+pandas>=2.2.0
+numpy>=1.26.0
+scipy>=1.12.0
+scikit-learn>=1.4.0
+pyarrow>=15.0.0
+
+# Report Generation & Document Services
+reportlab>=4.1.0
+openpyxl>=3.1.2
+python-pptx>=1.0.0
+
+# AI & External APIs
+groq>=0.9.0
+resend>=2.0.0
+
+# Environment & Utilities
+python-dotenv>=1.0.0
+psutil>=5.9.0
+anyio>=4.3.0
+joblib>=1.3.2
+threadpoolctl>=3.3.0
+
+# Testing
+pytest>=8.0.0
