@@ -58,3 +58,5 @@ api_router.include_router(semantic_model_router, tags=["Enterprise Semantic Mode
 api_router.include_router(intelligence_router, tags=["Dataset Intelligence Layer"])
 api_router.include_router(dynamic_kpi_router)
 api_router.include_router(strategy_router, tags=["Enterprise Strategy & Decision Intelligence"])
+api_router.include_router(copilot_router, prefix="/copilot", tags=["Enterprise AI Copilot"])
+api_router.include_router(copilot_router, prefix="/ai/copilot", tags=["Enterprise AI Copilot"])

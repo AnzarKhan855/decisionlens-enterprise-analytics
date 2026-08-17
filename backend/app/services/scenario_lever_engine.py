@@ -18,6 +18,8 @@ class ScenarioLeverEngine:
     other variables, and business relevance.
     """
 
+    _lever_cache: Dict[str, Dict[str, Any]] = {}
+
     MIN_NON_NULL_RATIO = 0.6
     MIN_VARIANCE = 1e-6
     MAX_UNIQUENESS_FOR_LEVER = 0.90
@@ -39,6 +41,9 @@ class ScenarioLeverEngine:
         semantic_model: Optional[Dict[str, Any]] = None,
         analytics_result: Optional[Any] = None,
     ) -> Dict[str, Any]:
+        ws_id = profile.get("workspace_id") or getattr(analytics_result, "workspace_id", "")
+        if ws_id and ws_id in cls._lever_cache:
+            return cls._lever_cache[ws_id]
         columns = profile.get("columns", {})
         total_rows = profile.get("total_rows", 0)
         col_categories = profile.get("column_categories", {})
@@ -131,7 +136,9 @@ class ScenarioLeverEngine:
             else "No suitable numeric variables detected. Upload a dataset with numeric measures."
         )
 
-        return {
+        result_payload = {
+            "total_columns": len(columns),
+            "total_rows": total_rows,
             "workspace_id": semantic_model.get("workspace_id") if isinstance(semantic_model, dict) else getattr(semantic_model, "workspace_id", ""),
             "available_levers": available_levers,
             "unavailable_candidates": unavailable_reasons,
@@ -142,6 +149,9 @@ class ScenarioLeverEngine:
                 "lever_count": len(available_levers),
             },
         }
+        if ws_id:
+            cls._lever_cache[ws_id] = result_payload
+        return result_payload
 
     @classmethod
     def simulate(

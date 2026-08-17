@@ -38,6 +38,7 @@ PERMISSIONS = [
     "manage_organizations",
     "manage_all_workspaces",
     "view_all_audit_logs",
+    "view_audit_logs",
     "manage_users",
     "manage_own_organization",
     "invite_employees",
@@ -67,6 +68,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "upload_dataset",
         "execute_ai",
         "execute_sql",
+        "view_audit_logs",
+        "view_all_audit_logs",
     ],
     EMPLOYEE: [
         "view_dashboards",
@@ -74,6 +77,8 @@ ROLE_PERMISSIONS: Dict[str, List[str]] = {
         "export_reports",
         "use_copilot",
         "view_allowed_datasets",
+        "view_audit_logs",
+        "view_all_audit_logs",
     ],
 }
 

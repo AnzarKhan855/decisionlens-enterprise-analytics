@@ -78,8 +78,11 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+from app.middleware.performance_middleware import HighResolutionPerformanceMiddleware
+
 app.add_middleware(GlobalErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(HighResolutionPerformanceMiddleware)
 
 
 @app.middleware("http")
@@ -204,6 +207,12 @@ app.include_router(
 app.include_router(
     api_router,
     prefix="/api/v1"
+)
+
+app.include_router(
+    copilot_router,
+    prefix="/api/v1/copilot",
+    tags=["Enterprise AI Copilot"]
 )
 
 app.include_router(

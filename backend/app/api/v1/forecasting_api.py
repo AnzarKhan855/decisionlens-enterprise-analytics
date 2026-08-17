@@ -66,6 +66,16 @@ def get_time_series_forecast(
         parquet_path = _get_parquet_path(db, dataset_id)
         ws_id = _get_workspace_id(db, dataset_id)
         profile = SemanticDataProfiler.profile(parquet_path)
+        if not profile or profile.get("total_rows", 0) < 3:
+            return {
+                "dataset_id": dataset_id or "latest",
+                "workspace_id": ws_id,
+                "forecast_available": False,
+                "reason": "No historical data available",
+                "total_rows": profile.get("total_rows", 0) if profile else 0,
+                "predictions": [],
+                "horizon": horizon
+            }
 
         from app.services.analytics_cache_service import AnalyticsCacheService
         from app.schemas.analytics import AnalyticsResult, Prediction

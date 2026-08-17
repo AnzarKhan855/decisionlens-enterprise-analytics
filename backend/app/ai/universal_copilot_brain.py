@@ -359,6 +359,10 @@ class UniversalAIBrain:
     def _run_universal_analytics(cls, semantic_model: SemanticModel, parquet_path: Path) -> Optional[Dict[str, Any]]:
         try:
             ws_id = getattr(semantic_model, "workspace_id", "") or ""
+            from app.services.analytics_cache_service import AnalyticsCacheService
+            cached = AnalyticsCacheService.get_cached(ws_id, parquet_path)
+            if cached:
+                return cached
             from app.analytics.universal_engine import UniversalAnalyticsEngine
             result = UniversalAnalyticsEngine.analyze(semantic_model, parquet_path=parquet_path, workspace_id=ws_id)
             return result.to_dict()
