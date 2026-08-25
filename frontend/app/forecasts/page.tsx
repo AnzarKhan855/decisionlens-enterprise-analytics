@@ -160,11 +160,36 @@ function getRiskColor(risk: string): string {
   return "text-success-400 bg-success-500/10 border-success-500/30";
 }
 
+interface DetectionInfo {
+  detected: boolean;
+  selected: string | null;
+  possible_columns: string[];
+}
+
+interface DetectionPayload {
+  dataset_detected: boolean;
+  detections?: {
+    time_column?: DetectionInfo;
+    quantity_column?: DetectionInfo;
+    unit_price_column?: DetectionInfo;
+    revenue_column?: DetectionInfo;
+  };
+  all_columns?: string[];
+  all_numeric_columns?: string[];
+}
+
 export default function ForecastsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsResultPayload | null>(null);
+  const [detection, setDetection] = useState<DetectionPayload | null>(null);
   const [selectedHorizon, setSelectedHorizon] = useState("90d");
+
+  // Manual column overrides
+  const [manualTimeCol, setManualTimeCol] = useState<string>("");
+  const [manualQtyCol, setManualQtyCol] = useState<string>("");
+  const [manualPriceCol, setManualPriceCol] = useState<string>("");
+  const [manualRevCol, setManualRevCol] = useState<string>("");
 
   useEffect(() => {
     loadForecast();
@@ -174,9 +199,20 @@ export default function ForecastsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("/analytics/universal");
-      if (res.data) {
-        setAnalytics(res.data);
+      const [resUniversal, resDetection] = await Promise.all([
+        api.get("/analytics/universal"),
+        api.get("/ml/forecast/detection").catch(() => ({ data: null })),
+      ]);
+      if (resUniversal.data) {
+        setAnalytics(resUniversal.data);
+      }
+      if (resDetection.data) {
+        setDetection(resDetection.data);
+        const dets = resDetection.data.detections || {};
+        if (dets.time_column?.selected) setManualTimeCol(dets.time_column.selected);
+        if (dets.quantity_column?.selected) setManualQtyCol(dets.quantity_column.selected);
+        if (dets.unit_price_column?.selected) setManualPriceCol(dets.unit_price_column.selected);
+        if (dets.revenue_column?.selected) setManualRevCol(dets.revenue_column.selected);
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
@@ -337,6 +373,136 @@ export default function ForecastsPage() {
         <ForecastEmptyState />
       ) : (
         <div className="space-y-8">
+          {/* ====== DETERMINISTIC COLUMN DETECTION & WORKFLOW ====== */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-6 bg-surface-muted border border-border-color rounded-2xl space-y-5 premium-card"
+          >
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border-color">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-primary">
+                <Target className="w-4 h-4 text-primary-400" />
+                <span>Deterministic Dataset Column Detection Status</span>
+              </div>
+              <span className="text-[11px] font-mono text-text-muted">
+                Pipeline: Dataset → Validate → Detect Time → Detect Metric → Model Selection → Forecast → Evaluate
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Time Column */}
+              <div className="p-4 bg-background/60 rounded-xl border border-border-color space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold">
+                  <span className="text-text-muted uppercase tracking-wider text-[10px]">Time Column</span>
+                  {detection?.detections?.time_column?.detected ? (
+                    <span className="text-success-400 flex items-center gap-1 text-[11px]">✓ Detected</span>
+                  ) : (
+                    <span className="text-warning-400 flex items-center gap-1 text-[11px]">⚠ Not Detected</span>
+                  )}
+                </div>
+                <div className="font-mono text-xs font-bold text-text-primary">
+                  {manualTimeCol || detection?.detections?.time_column?.selected || "None"}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-text-muted font-semibold block">Select Column:</label>
+                  <select
+                    value={manualTimeCol}
+                    onChange={(e) => setManualTimeCol(e.target.value)}
+                    className="w-full text-xs p-1.5 bg-background border border-border-color rounded-lg text-text-secondary outline-none focus:border-primary-500"
+                  >
+                    <option value="">Auto-detected ({detection?.detections?.time_column?.selected || "None"})</option>
+                    {(detection?.all_columns || []).map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Quantity Column */}
+              <div className="p-4 bg-background/60 rounded-xl border border-border-color space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold">
+                  <span className="text-text-muted uppercase tracking-wider text-[10px]">Quantity Column</span>
+                  {detection?.detections?.quantity_column?.detected ? (
+                    <span className="text-success-400 flex items-center gap-1 text-[11px]">✓ Detected</span>
+                  ) : (
+                    <span className="text-warning-400 flex items-center gap-1 text-[11px]">⚠ Not Detected</span>
+                  )}
+                </div>
+                <div className="font-mono text-xs font-bold text-text-primary">
+                  {manualQtyCol || detection?.detections?.quantity_column?.selected || "None"}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-text-muted font-semibold block">Select Column:</label>
+                  <select
+                    value={manualQtyCol}
+                    onChange={(e) => setManualQtyCol(e.target.value)}
+                    className="w-full text-xs p-1.5 bg-background border border-border-color rounded-lg text-text-secondary outline-none focus:border-primary-500"
+                  >
+                    <option value="">Auto-detected ({detection?.detections?.quantity_column?.selected || "None"})</option>
+                    {(detection?.all_numeric_columns || detection?.all_columns || []).map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Unit Price Column */}
+              <div className="p-4 bg-background/60 rounded-xl border border-border-color space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold">
+                  <span className="text-text-muted uppercase tracking-wider text-[10px]">Unit Price Column</span>
+                  {detection?.detections?.unit_price_column?.detected ? (
+                    <span className="text-success-400 flex items-center gap-1 text-[11px]">✓ Detected</span>
+                  ) : (
+                    <span className="text-warning-400 flex items-center gap-1 text-[11px]">⚠ Not Detected</span>
+                  )}
+                </div>
+                <div className="font-mono text-xs font-bold text-text-primary">
+                  {manualPriceCol || detection?.detections?.unit_price_column?.selected || "None"}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-text-muted font-semibold block">Select Column:</label>
+                  <select
+                    value={manualPriceCol}
+                    onChange={(e) => setManualPriceCol(e.target.value)}
+                    className="w-full text-xs p-1.5 bg-background border border-border-color rounded-lg text-text-secondary outline-none focus:border-primary-500"
+                  >
+                    <option value="">Auto-detected ({detection?.detections?.unit_price_column?.selected || "None"})</option>
+                    {(detection?.all_numeric_columns || detection?.all_columns || []).map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Revenue Column */}
+              <div className="p-4 bg-background/60 rounded-xl border border-border-color space-y-2">
+                <div className="flex items-center justify-between text-xs font-extrabold">
+                  <span className="text-text-muted uppercase tracking-wider text-[10px]">Revenue Column</span>
+                  {detection?.detections?.revenue_column?.detected ? (
+                    <span className="text-success-400 flex items-center gap-1 text-[11px]">✓ Detected</span>
+                  ) : (
+                    <span className="text-warning-400 flex items-center gap-1 text-[11px]">⚠ Not Detected</span>
+                  )}
+                </div>
+                <div className="font-mono text-xs font-bold text-text-primary">
+                  {manualRevCol || detection?.detections?.revenue_column?.selected || "None"}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-text-muted font-semibold block">Select Column:</label>
+                  <select
+                    value={manualRevCol}
+                    onChange={(e) => setManualRevCol(e.target.value)}
+                    className="w-full text-xs p-1.5 bg-background border border-border-color rounded-lg text-text-secondary outline-none focus:border-primary-500"
+                  >
+                    <option value="">Auto-detected ({detection?.detections?.revenue_column?.selected || "None"})</option>
+                    {(detection?.all_numeric_columns || detection?.all_columns || []).map((col) => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </motion.div>
           {/* ====== FORECAST HERO COMMAND CENTER ====== */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}

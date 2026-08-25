@@ -56,6 +56,34 @@ def _get_workspace_id(db, dataset_id: Optional[str] = None) -> str:
     return "default"
 
 
+@router.get("/analytics/forecasting/detection")
+@router.get("/forecast/detection")
+def get_forecasting_column_detection(dataset_id: Optional[str] = Query(None)):
+    """
+    Returns deterministic column detection for Time, Quantity, Unit Price, and Revenue columns.
+    """
+    db = SessionLocal()
+    try:
+        parquet_path = _get_parquet_path(db, dataset_id)
+        profile = SemanticDataProfiler.profile(parquet_path)
+        from app.analytics.forecasting_detector import ForecastingColumnDetector
+        return ForecastingColumnDetector.detect_columns(profile)
+    except Exception as exc:
+        logger.error("[Forecasting Detection] Error: %s", exc)
+        return {
+            "dataset_detected": False,
+            "error": str(exc),
+            "detections": {
+                "time_column": {"detected": False, "selected": None, "possible_columns": []},
+                "quantity_column": {"detected": False, "selected": None, "possible_columns": []},
+                "unit_price_column": {"detected": False, "selected": None, "possible_columns": []},
+                "revenue_column": {"detected": False, "selected": None, "possible_columns": []},
+            }
+        }
+    finally:
+        db.close()
+
+
 @router.get("/forecast")
 def get_time_series_forecast(
     dataset_id: Optional[str] = Query(None, description="Dataset ID"),

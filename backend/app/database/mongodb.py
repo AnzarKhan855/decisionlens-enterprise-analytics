@@ -36,42 +36,56 @@ def get_collection(name: str):
     return get_database()[name]
 
 
-users = get_collection("users")
-workspaces = get_collection("workspaces")
-datasets = get_collection("datasets")
-insights = get_collection("insights")
-reports = get_collection("reports")
-analytics_cache = get_collection("analytics_cache")
-copilot_history = get_collection("copilot_history")
-uploads = get_collection("uploads")
-forecast_cache = get_collection("forecast_cache")
-audit_logs = get_collection("audit_logs")
-scenario_simulations = get_collection("scenario_simulations")
-generated_sql = get_collection("generated_sql")
+class _CollectionProxy:
+    def __init__(self, name: str):
+        self._name = name
+
+    def _get_coll(self):
+        return get_collection(self._name)
+
+    def __getattr__(self, item: str):
+        return getattr(self._get_coll(), item)
+
+    def __getitem__(self, item: str):
+        return self._get_coll()[item]
+
+
+users = _CollectionProxy("users")
+workspaces = _CollectionProxy("workspaces")
+datasets = _CollectionProxy("datasets")
+insights = _CollectionProxy("insights")
+reports = _CollectionProxy("reports")
+analytics_cache = _CollectionProxy("analytics_cache")
+copilot_history = _CollectionProxy("copilot_history")
+uploads = _CollectionProxy("uploads")
+forecast_cache = _CollectionProxy("forecast_cache")
+audit_logs = _CollectionProxy("audit_logs")
+scenario_simulations = _CollectionProxy("scenario_simulations")
+generated_sql = _CollectionProxy("generated_sql")
 
 # Business Memory Collections
-conversation_history = get_collection("conversation_history")
-report_history = get_collection("report_history")
-insight_history = get_collection("insight_history")
-forecast_history = get_collection("forecast_history")
-recommendation_history = get_collection("recommendation_history")
-business_goals = get_collection("business_goals")
-executive_decisions = get_collection("executive_decisions")
-forecast_accuracy = get_collection("forecast_accuracy")
-kpi_history = get_collection("kpi_history")
-user_feedback = get_collection("user_feedback")
-business_milestones = get_collection("business_milestones")
-dynamic_kpis = get_collection("dynamic_kpis")
-dashboard_layouts = get_collection("dashboard_layouts")
+conversation_history = _CollectionProxy("conversation_history")
+report_history = _CollectionProxy("report_history")
+insight_history = _CollectionProxy("insight_history")
+forecast_history = _CollectionProxy("forecast_history")
+recommendation_history = _CollectionProxy("recommendation_history")
+business_goals = _CollectionProxy("business_goals")
+executive_decisions = _CollectionProxy("executive_decisions")
+forecast_accuracy = _CollectionProxy("forecast_accuracy")
+kpi_history = _CollectionProxy("kpi_history")
+user_feedback = _CollectionProxy("user_feedback")
+business_milestones = _CollectionProxy("business_milestones")
+dynamic_kpis = _CollectionProxy("dynamic_kpis")
+dashboard_layouts = _CollectionProxy("dashboard_layouts")
 
 
 # Strategy Engine Collections
-strategy_reports = get_collection("strategy_reports")
-decision_trees = get_collection("decision_trees")
-risk_profiles = get_collection("risk_profiles")
-opportunity_profiles = get_collection("opportunity_profiles")
-scenario_history = get_collection("scenario_history")
-executive_briefings = get_collection("executive_briefings")
+strategy_reports = _CollectionProxy("strategy_reports")
+decision_trees = _CollectionProxy("decision_trees")
+risk_profiles = _CollectionProxy("risk_profiles")
+opportunity_profiles = _CollectionProxy("opportunity_profiles")
+scenario_history = _CollectionProxy("scenario_history")
+executive_briefings = _CollectionProxy("executive_briefings")
 
 
 def ensure_indexes():

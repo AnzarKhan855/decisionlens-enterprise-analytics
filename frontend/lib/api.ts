@@ -124,25 +124,23 @@ export async function getCached<T>(url: string, params?: Record<string, unknown>
     return inFlight as Promise<T>;
   }
 
-  const promise = api.get<T>(url, { params }).then((response) => {
-    setCache(key, response.data, ttl);
-    _inFlightRequests.delete(key);
-    return response.data;
-  }).catch((err) => {
-    _inFlightRequests.delete(key);
-    throw err;
-  });
+  const promise = api.get<T>(url, { params })
+    .then((response) => {
+      setCache(key, response.data, ttl);
+      return response.data;
+    })
+    .finally(() => {
+      _inFlightRequests.delete(key);
+    });
 
   _inFlightRequests.set(key, promise);
   return promise;
 }
 
 export async function postCached<T>(url: string, data?: unknown, ttl?: number): Promise<T> {
-  if (typeof data === "object" && data !== null) {
-    const d = data as Record<string, unknown>;
-    if (d.question !== undefined || url.includes("/copilot/query") || url.includes("/ai/copilot/query") || url.includes("/ai/query")) {
-      return api.post<T>(url, data).then((response) => response.data);
-    }
+  const isMutation = url.includes("/simulate") || url.includes("/generate") || url.includes("/submit") || url.includes("/copilot") || url.includes("/ai/");
+  if (isMutation) {
+    return api.post<T>(url, data).then((response) => response.data);
   }
 
   const key = cacheKey(url, data as Record<string, unknown>);
@@ -156,14 +154,14 @@ export async function postCached<T>(url: string, data?: unknown, ttl?: number): 
     return inFlight as Promise<T>;
   }
 
-  const promise = api.post<T>(url, data).then((response) => {
-    setCache(key, response.data, ttl);
-    _inFlightRequests.delete(key);
-    return response.data;
-  }).catch((err) => {
-    _inFlightRequests.delete(key);
-    throw err;
-  });
+  const promise = api.post<T>(url, data)
+    .then((response) => {
+      setCache(key, response.data, ttl);
+      return response.data;
+    })
+    .finally(() => {
+      _inFlightRequests.delete(key);
+    });
 
   _inFlightRequests.set(key, promise);
   return promise;
@@ -186,5 +184,11 @@ export const apiGet = <T>(url: string, params?: Record<string, unknown>): Promis
 
 export const apiPost = <T>(url: string, data?: unknown): Promise<T> =>
   postCached<T>(url, data);
+
+export const apiPostDirect = <T>(url: string, data?: unknown, config?: Record<string, unknown>): Promise<T> =>
+  api.post<T>(url, data, config).then((res) => res.data);
+
+export const apiGetDirect = <T>(url: string, params?: Record<string, unknown>, config?: Record<string, unknown>): Promise<T> =>
+  api.get<T>(url, { params, ...config }).then((res) => res.data);
 
 export default api;

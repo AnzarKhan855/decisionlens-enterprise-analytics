@@ -207,6 +207,7 @@ def _generate_report_background(dataset_id: str, report_type: str = "executive")
 
 @router.get("/")
 @router.get("")
+@router.get("/executive")
 def get_reports(dataset_id: Optional[str] = None):
     return _get_report_data(dataset_id)
 

@@ -88,6 +88,13 @@ export default function WhatIfSimulator() {
     setChanges(newChanges);
   }
 
+  function handleReverseScenario() {
+    setChanges({});
+    setResult(null);
+    setError(null);
+    setLoading(false);
+  }
+
   async function handleRunSimulation() {
     setLoading(true);
     setError(null);
@@ -97,7 +104,8 @@ export default function WhatIfSimulator() {
         .map(([lever_id, change_pct]) => ({ lever_id, change_pct }));
 
       if (changesPayload.length === 0) {
-        setError("Please adjust at least one lever before running the simulation.");
+        setResult(null);
+        setLoading(false);
         return;
       }
 
@@ -136,22 +144,35 @@ export default function WhatIfSimulator() {
           </div>
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleRunSimulation}
-          disabled={loading || isUnavailable}
-          className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-primary-600/30 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}>
-              <RefreshCw className="w-4 h-4" />
-            </motion.div>
-          ) : (
-            <Sparkles className="w-4 h-4" />
-          )}
-          <span>Run Predictive Simulation</span>
-        </motion.button>
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleReverseScenario}
+            disabled={loading || isUnavailable || (Object.keys(changes).length === 0 && !result)}
+            className="px-4 py-3 bg-surface hover:bg-surface-muted border border-border-color text-text-secondary font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-40"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-warning-400" />
+            <span>Reverse Scenario</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleRunSimulation}
+            disabled={loading || isUnavailable}
+            className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-primary-600/30 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}>
+                <RefreshCw className="w-4 h-4" />
+              </motion.div>
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            <span>Run Predictive Simulation</span>
+          </motion.button>
+        </div>
       </div>
 
       {presets && presets.length > 0 && (

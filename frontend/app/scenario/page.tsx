@@ -139,6 +139,9 @@ export default function ScenarioCommandCenter() {
   const [changes, setChanges] = useState<Record<string, number>>({});
   const autoRunTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [stages, setStages] = useState<Array<{ name: string; status: "completed" | "in_progress" | "pending" }>>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     async function fetchLevers() {
       setLoadingLevers(true);
@@ -173,30 +176,79 @@ export default function ScenarioCommandCenter() {
     setChanges(newChanges);
   }
 
+  function handleReverseScenario() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    if (autoRunTimerRef.current) {
+      clearTimeout(autoRunTimerRef.current);
+    }
+    setChanges({});
+    setResult(null);
+    setError(null);
+    setLoadingSim(false);
+    setStages([]);
+  }
+
   async function handleRunSimulation() {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoadingSim(true);
     setError(null);
-    setResult(null);
+
+    setStages([
+      { name: "Evaluating lever assumptions (Revenue, Quantity, Pricing)", status: "in_progress" },
+      { name: "Calculating statistical correlations & metric deltas", status: "pending" },
+      { name: "Recalculating predictive forecast & impact", status: "pending" },
+    ]);
+
     try {
       const changesPayload: ScenarioChange[] = Object.entries(changes)
         .filter(([, v]) => v !== 0)
         .map(([lever_id, change_pct]) => ({ lever_id, change_pct }));
 
       if (changesPayload.length === 0) {
-        setError("Please adjust at least one lever before running the simulation.");
+        setResult(null);
+        setLoadingSim(false);
+        setStages([]);
         return;
       }
 
+      setStages([
+        { name: "Evaluating lever assumptions (Revenue, Quantity, Pricing)", status: "completed" },
+        { name: "Calculating statistical correlations & metric deltas", status: "in_progress" },
+        { name: "Recalculating predictive forecast & impact", status: "pending" },
+      ]);
+
       const res = await api.post("/analytics/scenario/simulate", {
         changes: changesPayload,
-      });
+      }, { signal: controller.signal });
+
+      setStages([
+        { name: "Evaluating lever assumptions (Revenue, Quantity, Pricing)", status: "completed" },
+        { name: "Calculating statistical correlations & metric deltas", status: "completed" },
+        { name: "Recalculating predictive forecast & impact", status: "completed" },
+      ]);
+
       setResult(res.data);
     } catch (err: any) {
+      if (axiosIsCancel(err) || err.name === "CanceledError" || err.name === "AbortError") {
+        return;
+      }
       console.error("Simulation error:", err);
       setError(err.response?.data?.detail || err.message || "Failed to execute scenario simulation.");
+      setStages([]);
     } finally {
       setLoadingSim(false);
     }
+  }
+
+  function axiosIsCancel(err: any) {
+    return err && (err.name === "CanceledError" || err.code === "ERR_CANCELED");
   }
 
   const isUnavailable = !loadingLevers && (!capability?.supported || levers.length === 0);
@@ -236,21 +288,67 @@ export default function ScenarioCommandCenter() {
           </p>
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={handleRunSimulation}
-          disabled={loadingSim || isUnavailable}
-          className="px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white font-extrabold text-xs rounded-2xl shadow-md shadow-primary-600/30 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed self-start"
-        >
-          {loadingSim ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Sparkles className="w-4 h-4" />
-          )}
-          <span>Run Predictive Simulation</span>
-        </motion.button>
+        <div className="flex items-center gap-3 self-start md:self-auto">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleReverseScenario}
+            disabled={loadingSim || isUnavailable || (Object.keys(changes).length === 0 && !result)}
+            className="px-4 py-3 bg-surface hover:bg-surface-muted border border-border-color text-text-secondary hover:text-text-primary font-bold text-xs rounded-2xl flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-warning-400" />
+            <span>Reverse / Reset Scenario</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleRunSimulation}
+            disabled={loadingSim || isUnavailable}
+            className="px-6 py-3 bg-primary-600 hover:bg-primary-500 text-white font-extrabold text-xs rounded-2xl shadow-md shadow-primary-600/30 flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingSim ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            <span>Run Predictive Simulation</span>
+          </motion.button>
+        </div>
       </div>
+
+      {/* Processing Stages Progress Banner */}
+      {loadingSim && stages.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-5 bg-primary-500/10 border border-primary-500/30 rounded-2xl space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-primary-400 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-primary-400" />
+              <span>Analyzing Scenario Impact...</span>
+            </span>
+            <span className="text-[11px] font-mono font-bold text-primary-300">Processing Stage 2 of 3</span>
+          </div>
+          <div className="space-y-1.5">
+            {stages.map((st, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                {st.status === "completed" ? (
+                  <span className="text-success-400 font-bold">✓</span>
+                ) : st.status === "in_progress" ? (
+                  <span className="text-warning-400 font-bold animate-pulse">⏳</span>
+                ) : (
+                  <span className="text-text-muted font-bold">◦</span>
+                )}
+                <span className={st.status === "completed" ? "text-success-300 font-semibold" : st.status === "in_progress" ? "text-warning-300 font-bold" : "text-text-muted"}>
+                  {st.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {loadingLevers ? (
         <ScenarioSkeleton />

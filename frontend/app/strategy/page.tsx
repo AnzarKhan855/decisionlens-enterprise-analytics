@@ -648,63 +648,71 @@ export default function StrategyPage() {
                   const action = rec.action || rec.reason || "Execute recommended next step";
                   const confidence = rec.confidence || 75;
 
-                  return (
-                    <motion.div
-                      key={rec.id || i}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.08 }}
-                        className="bg-background border border-border-color hover:border-primary-500/40 rounded-2xl p-6 shadow-lg flex flex-col justify-between space-y-4 premium-card transition-all"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400">
-                            Priority #{i + 1}
-                          </span>
-                          <PriorityBadge priority={rec.priority} />
-                        </div>
+                      return (
+                        <motion.div
+                          key={rec.id || i}
+                          initial={{ opacity: 0, y: 16 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.08 }}
+                          className="bg-background border border-border-color hover:border-primary-500/40 rounded-2xl p-6 shadow-lg flex flex-col justify-between space-y-4 premium-card transition-all"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary-400">
+                                Strategic Priority #{i + 1}
+                              </span>
+                              <PriorityBadge priority={rec.priority} />
+                            </div>
 
-                        <h4 className="text-base font-extrabold text-text-primary leading-snug">
-                          {title}
-                        </h4>
+                            <h4 className="text-base font-extrabold text-text-primary leading-snug">
+                              {title}
+                            </h4>
 
-                        <p className="text-xs text-text-muted leading-relaxed">
-                          {evidence}
-                        </p>
+                            {/* Situation */}
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block">Situation</span>
+                              <p className="text-xs text-text-secondary leading-relaxed font-medium">
+                                {rec.reason || "Empirical variance detected across key business metrics."}
+                              </p>
+                            </div>
 
-                        <div className="p-3 bg-background/60 rounded-xl border border-border-color space-y-2">
-                          <div className="text-[11px] text-text-secondary font-semibold flex items-center gap-1.5">
-                            <Lightbulb className="w-3.5 h-3.5 text-warning-400" />
-                            <span>Rationale:</span>
+                            {/* Evidence */}
+                            <div className="space-y-1 p-2.5 bg-background/60 rounded-xl border border-border-color">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-primary-400 block">Evidence</span>
+                              <p className="text-[11px] text-text-muted leading-relaxed font-mono">
+                                {evidence}
+                              </p>
+                            </div>
+
+                            {/* Risk */}
+                            <div className="space-y-1 p-2.5 bg-warning-500/10 rounded-xl border border-warning-500/20">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-warning-300 block">Operational Risk</span>
+                              <p className="text-[11px] text-text-secondary leading-relaxed font-semibold">
+                                Risk Level: {rec.risk_level || "Medium"} — {rec.business_impact || "Potential operational inefficiency if unmitigated."}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-[11px] text-text-muted leading-relaxed">{rec.reason || "Identified through strategic variance analysis."}</p>
-                        </div>
-                      </div>
 
-                      <div className="pt-3 border-t border-border-color/80 space-y-3">
-                        <div className="text-[11px] text-success-400 font-semibold flex items-center gap-1.5">
-                          <TrendingUp className="w-3.5 h-3.5" />
-                          <span>{impact}</span>
-                        </div>
-                        {rec.estimated_roi && (
-                          <div className="text-[11px] text-primary-300 font-medium flex items-center gap-1.5">
-                            <DollarSign className="w-3.5 h-3.5 text-primary-400" />
-                            <span>ROI: {rec.estimated_roi}</span>
+                          <div className="pt-3 border-t border-border-color/80 space-y-3">
+                            {/* Recommendation */}
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-success-400 block">Recommendation</span>
+                              <p className="text-[11px] text-text-primary font-bold leading-relaxed">
+                                {action}
+                              </p>
+                            </div>
+
+                            {/* Expected Impact */}
+                            <div className="flex items-center justify-between text-[11px] text-success-300 font-semibold pt-1 border-t border-border-light">
+                              <span>Expected Impact:</span>
+                              <span className="font-extrabold">{impact}</span>
+                            </div>
+
+                            {/* Confidence */}
+                            <ConfidenceBar confidence={confidence} />
                           </div>
-                        )}
-                        <div className="text-[11px] text-primary-300 font-medium flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary-400" />
-                          <span>Action: {action}</span>
-                        </div>
-                        <ConfidenceBar confidence={confidence} />
-                        {rec.expected_gain && (
-                          <div className="text-[10px] text-success-400 font-semibold">
-                            Expected Gain: {rec.expected_gain}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
+                        </motion.div>
+                      );
                 })}
               </div>
             </motion.div>

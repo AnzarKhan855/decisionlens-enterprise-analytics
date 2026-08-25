@@ -74,8 +74,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Workspace-Id", "X-Request-Id", "Accept", "Origin"],
+    max_age=86400,
 )
 
 from app.middleware.performance_middleware import HighResolutionPerformanceMiddleware
@@ -93,6 +94,10 @@ async def workspace_context_middleware(request: Request, call_next):
         RequestState.set_workspace_id(ws_id)
     response = await call_next(request)
     response.headers["X-Request-Id"] = request_id
+    if request.method != "OPTIONS":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 

@@ -124,6 +124,25 @@ def _build_analytics_result(parquet_path, workspace_id: str):
         return None
 
 
+_profile_cache_map: Dict[str, Any] = {}
+
+def _get_cached_profile(parquet_path):
+    if not parquet_path:
+        return {}
+    key = str(parquet_path)
+    try:
+        mtime = parquet_path.stat().st_mtime
+    except Exception:
+        mtime = 0.0
+    if key in _profile_cache_map:
+        cached_mtime, prof = _profile_cache_map[key]
+        if abs(cached_mtime - mtime) < 1e-4:
+            return prof
+    prof = SemanticDataProfiler.profile(parquet_path)
+    _profile_cache_map[key] = (mtime, prof)
+    return prof
+
+
 @router.get("/scenario/levers")
 def get_scenario_levers(dataset_id: Optional[str] = Query(None)):
     """
@@ -143,7 +162,7 @@ def get_scenario_levers(dataset_id: Optional[str] = Query(None)):
             }
 
         workspace_id = _get_workspace_id(db, dataset_id)
-        profile = SemanticDataProfiler.profile(parquet_path)
+        profile = _get_cached_profile(parquet_path)
         semantic_model = _build_semantic_model(workspace_id)
         analytics_result = _build_analytics_result(parquet_path, workspace_id)
 
@@ -167,14 +186,6 @@ def get_scenario_levers(dataset_id: Optional[str] = Query(None)):
 def simulate_scenario_data_driven(request: ScenarioSimulateRequest, dataset_id: Optional[str] = Query(None)):
     """
     Simulate scenario using dynamically discovered levers.
-
-    Request body:
-    {
-      "changes": [
-        {"lever_id": "quantity", "change_pct": 10},
-        {"lever_id": "price", "change_pct": -5}
-      ]
-    }
     """
     db = SessionLocal()
     try:
@@ -182,7 +193,7 @@ def simulate_scenario_data_driven(request: ScenarioSimulateRequest, dataset_id: 
         if not parquet_path:
             raise HTTPException(status_code=400, detail="No dataset uploaded to active workspace. Upload a dataset to run scenario simulation.")
         workspace_id = _get_workspace_id(db, dataset_id)
-        profile = SemanticDataProfiler.profile(parquet_path)
+        profile = _get_cached_profile(parquet_path)
         semantic_model = _build_semantic_model(workspace_id)
         analytics_result = _build_analytics_result(parquet_path, workspace_id)
 

@@ -28,10 +28,12 @@ from app.api.v1.semantic_model_api import router as semantic_model_router
 from app.api.v1.intelligence_api import router as intelligence_router
 from app.api.v1.dynamic_kpi_api import router as dynamic_kpi_router
 from app.api.v1.strategy_api import router as strategy_router
+from app.api.v1.jobs_api import router as jobs_router
 
 
 api_router = APIRouter()
 
+api_router.include_router(jobs_router)
 api_router.include_router(sso_router)
 api_router.include_router(monitoring_router)
 api_router.include_router(scheduler_router)

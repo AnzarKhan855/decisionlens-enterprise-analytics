@@ -1400,9 +1400,14 @@ class UniversalAIBrain:
         safe_dims = [d for d in dimensions if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", d)]
         safe_temporal = [t for t in temporal if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", t)]
 
-        m = safe_measures[0] if safe_measures else None
-        t = safe_temporal[0] if safe_temporal else None
-        d = safe_dims[0] if safe_dims else None
+        q_lower = (question or "").lower()
+        matched_m = next((col for col in safe_measures if col.lower() in q_lower or col.lower().replace("_", " ") in q_lower), None)
+        matched_d = next((col for col in safe_dims if col.lower() in q_lower or col.lower().replace("_", " ") in q_lower), None)
+        matched_t = next((col for col in safe_temporal if col.lower() in q_lower or col.lower().replace("_", " ") in q_lower), None)
+
+        m = matched_m or (safe_measures[0] if safe_measures else None)
+        t = matched_t or (safe_temporal[0] if safe_temporal else None)
+        d = matched_d or (safe_dims[0] if safe_dims else None)
 
         if intent == "root_cause_analysis" and m and safe_dims:
             sql = (
