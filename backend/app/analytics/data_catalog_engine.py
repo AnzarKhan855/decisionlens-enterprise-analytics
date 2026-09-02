@@ -142,9 +142,13 @@ class EnterpriseDataCatalogEngine:
 
     @classmethod
     def get_catalog_tables(cls, workspace_id: Optional[str] = None, search: Optional[str] = None, domain_filter: Optional[str] = None) -> List[Dict[str, Any]]:
-        cls._load()
-        target_ws = workspace_id or EnterpriseWorkspaceManager.get_active_workspace_id() or "ws-enterprise-generic"
+        target_ws = workspace_id or EnterpriseWorkspaceManager.get_active_workspace_id()
+        if not target_ws:
+            return []
         ws_info = EnterpriseWorkspaceManager.get_workspace(target_ws) or {}
+        if not ws_info:
+            return []
+        cls._load()
 
         sem_tables: Dict[str, Dict[str, Any]] = {}
         workspace_domain = "General"

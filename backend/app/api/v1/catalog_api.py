@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Query, Body, HTTPException
+from fastapi import APIRouter, Query, Body, HTTPException, Depends
 from typing import Optional, Dict, Any
 from app.analytics.data_catalog_engine import EnterpriseDataCatalogEngine
+from app.core.rbac import get_current_user_from_token, require_role, SUPER_ADMIN, ORGANIZATION_ADMIN
 
-router = APIRouter(prefix="/catalog", tags=["Enterprise Data Catalog & Governance (Purview Spec)"])
+router = APIRouter(
+    prefix="/catalog",
+    tags=["Enterprise Data Catalog & Governance (Purview Spec)"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/tables")
@@ -18,7 +23,10 @@ def get_catalog_tables(
 
 
 @router.post("/table/update")
-def update_catalog_table(body: Dict[str, Any] = Body(...)):
+def update_catalog_table(
+    body: Dict[str, Any] = Body(...),
+    user: Dict[str, Any] = Depends(require_role([SUPER_ADMIN, ORGANIZATION_ADMIN]))
+):
     table_name = body.get("table_name")
     updates = body.get("updates", {})
     if not table_name:

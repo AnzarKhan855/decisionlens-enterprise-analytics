@@ -67,7 +67,7 @@ export default function UploadPage() {
         transition={{ delay: 0.2, duration: 0.4 }}
         className="max-w-4xl mx-auto space-y-3"
       >
-        <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Single File Upload</h3>
+        <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Single File Upload</h2>
         <UploadCard />
       </motion.div>
 

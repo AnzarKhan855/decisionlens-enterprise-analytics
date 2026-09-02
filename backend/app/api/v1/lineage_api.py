@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query, Response, Depends
 from typing import Optional, Dict, Any
 from app.analytics.data_lineage_engine import DataLineageEngine
+from app.core.rbac import get_current_user_from_token
 
-router = APIRouter(prefix="/lineage", tags=["Data Lineage & Provenance (Microsoft Fabric Spec)"])
+router = APIRouter(
+    prefix="/lineage",
+    tags=["Data Lineage & Provenance (Microsoft Fabric Spec)"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/graph/{workspace_id}")

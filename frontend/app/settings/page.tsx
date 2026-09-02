@@ -17,6 +17,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useTheme } from "@/components/theme/ThemeProvider";
+import api from "@/lib/api";
 
 type TabId = "profile" | "security" | "api-keys" | "notifications" | "theme" | "workspace" | "organization";
 
@@ -54,6 +55,29 @@ export default function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [notifications, setNotifications] = useState({ email: true, push: true, weekly: false });
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [activeWorkspace, setActiveWorkspace] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      const meRes = await api.get("/auth/me").catch(() => null);
+      if (meRes?.data) setCurrentUser(meRes.data);
+
+      const wsRes = await api.get("/workspaces").catch(() => null);
+      const list = wsRes?.data?.workspaces || [];
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+      const found =
+        (storedId && list.find((w: any) => w.workspace_id === storedId)) ||
+        (wsRes?.data?.active_workspace_id && list.find((w: any) => w.workspace_id === wsRes.data.active_workspace_id)) ||
+        list.find((w: any) => w.is_active) ||
+        (list.length > 0 ? list[0] : null);
+      setActiveWorkspace(found);
+    }
+    loadData();
+    const handleWsChange = () => loadData();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
+  }, []);
 
   useEffect(() => {
     let timerId: ReturnType<typeof setTimeout> | null = null;
@@ -74,43 +98,44 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
+    <div className="py-6 sm:py-8 space-y-6 max-w-5xl mx-auto">
       <div className="premium-card p-5 lg:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary-600 mb-1">
-            <Settings className="w-4 h-4" /> System Configuration
+            <Settings className="w-4 h-4" aria-hidden="true" /> System Configuration
           </div>
           <h1 className="text-2xl font-extrabold text-text-primary">Enterprise Settings</h1>
           <p className="text-sm text-text-muted mt-1">Manage account, security, and workspace preferences.</p>
         </div>
-        <Button onClick={handleSave} icon={<CheckCircle2 className="w-4 h-4" />}>
+        <Button onClick={handleSave} icon={<CheckCircle2 className="w-4 h-4" aria-hidden="true" />}>
           Save Changes
         </Button>
       </div>
 
       {saved && (
-        <div className="p-4 bg-success-50 text-success-700 text-xs font-semibold rounded-xl border border-success-200 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-success-600" />
+        <div className="p-4 bg-success-50 text-success-700 text-xs font-semibold rounded-xl border border-success-200 flex items-center gap-2" role="status" aria-live="polite">
+          <CheckCircle2 className="w-4 h-4 text-success-600" aria-hidden="true" />
           <span>Settings saved successfully.</span>
         </div>
       )}
 
       {/* Tab Navigation */}
       <div className="premium-card overflow-hidden">
-        <nav className="flex overflow-x-auto border-b border-border-color" aria-label="Settings tabs">
+        <nav className="flex overflow-x-auto border-b border-border-color" aria-label="Settings tabs" role="tablist">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
                 flex items-center gap-2 px-5 py-3.5 text-xs font-semibold whitespace-nowrap
-                transition-all cursor-pointer border-b-2 -mb-px
+                transition-all cursor-pointer border-b-2 -mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500
                 ${activeTab === tab.id
                   ? "border-primary-600 text-primary-600 bg-primary-50/50"
                   : "border-transparent text-text-muted hover:text-text-secondary hover:bg-surface-muted"
                 }
               `}
-              aria-current={activeTab === tab.id ? "page" : undefined}
             >
               {tab.icon}
               <span>{tab.label}</span>
@@ -123,18 +148,18 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-primary-600 text-white font-extrabold text-xl flex items-center justify-center shadow-lg shadow-primary-600/30">
-                  AK
+                  {currentUser?.full_name ? currentUser.full_name.split(" ").map((n: string) => n[0]).join("") : "DL"}
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-text-primary">Anzar Khan</h3>
-                  <p className="text-xs text-text-muted">anzar@enterprise.com</p>
-                  <p className="text-xs text-primary-600 font-semibold">Super Admin</p>
+                  <h3 className="text-sm font-extrabold text-text-primary">{currentUser?.full_name || "Enterprise User"}</h3>
+                  <p className="text-xs text-text-muted">{currentUser?.email || "user@decisionlens.ai"}</p>
+                  <p className="text-xs text-primary-600 font-semibold">{currentUser?.role || "User"}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Full Name" defaultValue="Anzar Khan" />
-                <Input label="Email" type="email" defaultValue="anzar@enterprise.com" />
-                <Input label="Role" defaultValue="Super Admin" disabled />
+                <Input label="Full Name" defaultValue={currentUser?.full_name || "Enterprise User"} />
+                <Input label="Email" type="email" defaultValue={currentUser?.email || "user@decisionlens.ai"} />
+                <Input label="Role" defaultValue={currentUser?.role || "User"} disabled />
                 <Input label="Phone" placeholder="+1 (555) 000-0000" />
               </div>
             </div>
@@ -300,7 +325,7 @@ export default function SettingsPage() {
           {activeTab === "workspace" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Workspace Name" defaultValue="DecisionLens Enterprise" />
+                <Input label="Workspace Name" defaultValue={activeWorkspace?.name || "DecisionLens Enterprise"} key={activeWorkspace?.workspace_id || "default"} />
                 <Select
                   label="Default View"
                   options={[

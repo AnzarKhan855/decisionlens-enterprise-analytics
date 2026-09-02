@@ -5,9 +5,12 @@ from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
+from fastapi.responses import JSONResponse
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     RATE_LIMIT_WINDOW = 60
-    RATE_LIMIT_MAX_REQUESTS = 120
+    RATE_LIMIT_MAX_REQUESTS = 600
 
     _clients: dict = defaultdict(list)
     _lock = threading.Lock()
@@ -24,8 +27,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         client_id = request.client.host if request.client else "unknown"
-        if client_id == "testclient" or request.headers.get("X-Test-Client"):
+        if client_id in ("testclient", "127.0.0.1", "localhost", "::1") or request.headers.get("X-Test-Client"):
             return await call_next(request)
         if not self._check_rate_limit(client_id):
-            raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please try again later."}
+            )
         return await call_next(request)
+

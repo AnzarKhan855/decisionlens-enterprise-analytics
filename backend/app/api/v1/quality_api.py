@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import Optional
 from app.analytics.data_quality_engine import EnterpriseDataQualityEngine
+from app.core.rbac import get_current_user_from_token
 
-router = APIRouter(prefix="/quality", tags=["Data Quality & Health Engine (Databricks Spec)"])
+router = APIRouter(
+    prefix="/quality",
+    tags=["Data Quality & Health Engine (Databricks Spec)"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/score/{workspace_id}")

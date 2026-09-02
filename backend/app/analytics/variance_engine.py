@@ -34,7 +34,7 @@ class VarianceDecompositionEngine:
             SUM({m_esc}) as category_total
         FROM read_parquet('{path_str}')
         WHERE {d_esc} IS NOT NULL AND {m_esc} IS NOT NULL
-        GROUP BY category
+        GROUP BY 1
         ORDER BY category_total DESC
         LIMIT {top_n}
         """

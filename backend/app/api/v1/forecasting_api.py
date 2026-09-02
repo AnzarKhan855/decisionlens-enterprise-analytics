@@ -13,9 +13,13 @@ from app.resilience.retry import with_retry
 
 logger = get_logger(__name__)
 
+from fastapi import Depends
+from app.core.rbac import get_current_user_from_token
+
 router = APIRouter(
     prefix="/ml",
-    tags=["Machine Learning"]
+    tags=["Machine Learning"],
+    dependencies=[Depends(get_current_user_from_token)]
 )
 
 

@@ -82,6 +82,8 @@ def sanitize_filename(filename: str) -> str:
     from pathlib import Path
     name = Path(filename).name
     name = re.sub(r'[^\w\.\-]', '_', name)
+    while ".." in name:
+        name = name.replace("..", "_")
     if not name or name.startswith("."):
         name = "uploaded_file_" + name
     return name
@@ -107,15 +109,22 @@ def validate_upload(
         if not ok:
             errors.append(reason)
     elif ext == ".parquet":
-        tmp_path = Path("/tmp") / f"validate_{int(time.time())}_{filename}"
-        try:
-            tmp_path.write_bytes(content)
-            ok, reason = validate_parquet_content(tmp_path, min_rows=min_rows)
-            if not ok:
-                errors.append(reason)
-        finally:
-            if tmp_path.exists():
-                tmp_path.unlink()
+        if len(content) < 4 or not content.startswith(b"PAR1"):
+            errors.append("Invalid Parquet file: Missing 'PAR1' magic header.")
+        else:
+            import tempfile
+            tmp_path = Path(tempfile.gettempdir()) / f"validate_{int(time.time())}_{sanitize_filename(filename)}"
+            try:
+                tmp_path.write_bytes(content)
+                ok, reason = validate_parquet_content(tmp_path, min_rows=min_rows)
+                if not ok:
+                    errors.append(reason)
+            finally:
+                if tmp_path.exists():
+                    try:
+                        tmp_path.unlink()
+                    except Exception:
+                        pass
 
     if existing_hashes:
         ok, hash_result = detect_duplicate_content(content, existing_hashes)

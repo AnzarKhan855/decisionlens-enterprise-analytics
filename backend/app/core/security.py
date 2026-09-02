@@ -7,6 +7,8 @@ import time
 from typing import Any, Dict, Optional
 from dotenv import load_dotenv
 
+load_dotenv()
+
 SECRET_KEY = os.environ.get("SECRET_KEY") or os.environ.get("JWT_SECRET") or "dev_default_secret_key_decisionlens_2026_secure"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_SECONDS = 86400
@@ -37,7 +39,8 @@ class SecurityManager:
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return SecurityManager.hash_password(plain_password) == hashed_password
+        computed = SecurityManager.hash_password(plain_password)
+        return hmac.compare_digest(computed, hashed_password)
 
     @staticmethod
     def _base64url_encode(data: bytes) -> str:
@@ -75,8 +78,9 @@ class SecurityManager:
             header_b64, payload_b64, signature_b64 = parts
             signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
             expected_sig = hmac.new(SECRET_KEY.encode("utf-8"), signing_input, hashlib.sha256).digest()
+            expected_sig_b64 = SecurityManager._base64url_encode(expected_sig)
 
-            if SecurityManager._base64url_encode(expected_sig) != signature_b64:
+            if not hmac.compare_digest(expected_sig_b64, signature_b64):
                 return None
 
             payload_bytes = SecurityManager._base64url_decode(payload_b64)

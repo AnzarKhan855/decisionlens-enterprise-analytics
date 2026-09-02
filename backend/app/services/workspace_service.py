@@ -95,6 +95,15 @@ class EnterpriseWorkspaceManager:
         cls._load_workspaces()
         deleted_set = cls._load_deleted_set()
 
+        # 0. Check request-scoped state (e.g. from X-Workspace-Id or ?workspace_id=)
+        try:
+            from app.observability.error_handler import RequestState
+            req_ws = RequestState.get_workspace_id()
+            if req_ws and req_ws in cls._workspaces and req_ws not in deleted_set:
+                return req_ws
+        except Exception:
+            pass
+
         # 1. Check in-memory variable
         if cls._active_workspace_id and cls._active_workspace_id in cls._workspaces and cls._active_workspace_id not in deleted_set:
             return cls._active_workspace_id
@@ -111,13 +120,18 @@ class EnterpriseWorkspaceManager:
             except Exception:
                 pass
 
-        # 3. Fallback: If valid non-deleted workspaces exist, auto-activate the first available workspace
+        # 3. Fallback: If valid non-deleted workspaces exist, auto-activate the most recently updated or active workspace
         valid_workspaces = [w for w in cls._workspaces.keys() if w not in deleted_set]
         if valid_workspaces:
-            first_ws = valid_workspaces[0]
-            cls._active_workspace_id = first_ws
+            active_candidate = next((w for w in valid_workspaces if cls._workspaces[w].get("is_active")), None)
+            if not active_candidate:
+                active_candidate = max(
+                    valid_workspaces,
+                    key=lambda w: str(cls._workspaces[w].get("updated_at") or cls._workspaces[w].get("created_at") or "")
+                )
+            cls._active_workspace_id = active_candidate
             cls._save_active_workspace_id()
-            return first_ws
+            return active_candidate
 
         cls._active_workspace_id = None
         return None
@@ -523,6 +537,8 @@ class EnterpriseWorkspaceManager:
         try:
             from app.semantic_model.engine import invalidate_semantic_model_cache
             invalidate_semantic_model_cache()
+            from app.services.analytics_cache_service import AnalyticsCacheService
+            AnalyticsCacheService.invalidate(workspace_id)
         except Exception:
             pass
 

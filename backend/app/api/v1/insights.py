@@ -12,7 +12,12 @@ from app.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter()
+from fastapi import Depends
+from app.core.rbac import get_current_user_from_token
+
+router = APIRouter(
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 def _get_parquet_path(db, dataset_id: Optional[str] = None) -> Path:

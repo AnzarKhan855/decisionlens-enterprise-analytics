@@ -33,6 +33,12 @@ def _get_report_data(dataset_id: Optional[str] = None):
         except Exception:
             pass
 
+        if active_ws and active_ws != "latest":
+            from app.database.storage import ParquetStorageManager
+            p_path = ParquetStorageManager.get_parquet_path_for_workspace(active_ws)
+            if not p_path or not p_path.exists():
+                raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
+
         dashboard, analytics_result = get_dynamic_dashboard(
             dataset_id=dataset_id,
             return_analytics_result=True
@@ -63,10 +69,11 @@ def _get_report_data(dataset_id: Optional[str] = None):
 
         try:
             mongo_reports.update_one(
-                {"dataset_id": dataset_id or "latest"},
+                {"dataset_id": active_ws, "report_type": "executive"},
                 {
                     "$set": {
-                        "dataset_id": dataset_id or "latest",
+                        "dataset_id": active_ws,
+                        "report_type": "executive",
                         "report": report,
                         "generated_at": report.get("generated_at"),
                         "domain": report.get("domain"),
@@ -79,6 +86,8 @@ def _get_report_data(dataset_id: Optional[str] = None):
             logger.warning("[MongoDB Report] %s", mongo_exc)
 
         return report
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("[Reports] %s", exc)
         raise HTTPException(status_code=500, detail="Failed to generate executive report.")
@@ -99,6 +108,12 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
                 return cached_doc["report"]
         except Exception:
             pass
+
+        if active_ws and active_ws != "latest":
+            from app.database.storage import ParquetStorageManager
+            p_path = ParquetStorageManager.get_parquet_path_for_workspace(active_ws)
+            if not p_path or not p_path.exists():
+                raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
 
         dashboard, analytics_result = get_dynamic_dashboard(
             dataset_id=dataset_id,
@@ -144,6 +159,8 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
             logger.warning("[MongoDB Report] %s", mongo_exc)
 
         return report
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("[Role Reports] %s", exc)
         raise HTTPException(status_code=500, detail=f"Failed to generate {audience} report.")
@@ -208,24 +225,32 @@ def _generate_report_background(dataset_id: str, report_type: str = "executive")
 @router.get("/")
 @router.get("")
 @router.get("/executive")
-def get_reports(dataset_id: Optional[str] = None):
-    return _get_report_data(dataset_id)
+def get_reports(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+    target = workspace_id or dataset_id
+    return _get_report_data(target)
 
 
 @router.post("/generate")
-def trigger_report_generation(background_tasks: BackgroundTasks, dataset_id: Optional[str] = None, report_type: str = "executive"):
-    background_tasks.add_task(_generate_report_background, dataset_id or "latest", report_type)
+def trigger_report_generation(
+    background_tasks: BackgroundTasks,
+    dataset_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    report_type: str = "executive"
+):
+    target = workspace_id or dataset_id or "latest"
+    background_tasks.add_task(_generate_report_background, target, report_type)
     return {
         "status": "queued",
         "message": "Report generation started in the background.",
-        "dataset_id": dataset_id or "latest",
+        "dataset_id": target,
         "report_type": report_type,
     }
 
 
 @router.get("/export/csv")
-def export_kpi_csv(dataset_id: Optional[str] = None):
-    res = get_dynamic_dashboard(dataset_id)
+def export_kpi_csv(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+    target = workspace_id or dataset_id
+    res = get_dynamic_dashboard(target)
     dashboard = res[0] if isinstance(res, tuple) else res
     kpis = [k for k in dashboard.get("kpis", []) if isinstance(k, dict) and k.get("available")]
 
@@ -242,13 +267,14 @@ def export_kpi_csv(dataset_id: Optional[str] = None):
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=decisionlens_kpi_report_{dataset_id or 'latest'}.csv"},
+        headers={"Content-Disposition": f"attachment; filename=decisionlens_kpi_report_{target or 'latest'}.csv"},
     )
 
 
 @router.get("/export/summary")
-def export_executive_summary(dataset_id: Optional[str] = None):
-    report = _get_report_data(dataset_id)
+def export_executive_summary(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+    target = workspace_id or dataset_id
+    report = _get_report_data(target)
     exec_summary = report.get("sections", {}).get("executive_summary", {})
 
     summary_doc = {
@@ -268,13 +294,14 @@ def export_executive_summary(dataset_id: Optional[str] = None):
 
 
 @router.get("/export/pdf")
-def export_pdf(dataset_id: Optional[str] = None, audience: str = "executive"):
+def export_pdf(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
     try:
+        target = workspace_id or dataset_id
         if audience.lower() in ("ceo", "cfo", "coo", "cmo", "sales director", "supply chain head", "board"):
-            report = _get_role_report_data(dataset_id, audience.upper())
+            report = _get_role_report_data(target, audience.upper())
             title = report.get("report_title", f"{audience} Report")
         else:
-            report = _get_report_data(dataset_id)
+            report = _get_report_data(target)
             title = "DecisionLens Executive Report"
 
         pdf_bytes = PDFExporter.export(report, title=title)
@@ -289,13 +316,14 @@ def export_pdf(dataset_id: Optional[str] = None, audience: str = "executive"):
 
 
 @router.get("/export/docx")
-def export_docx(dataset_id: Optional[str] = None, audience: str = "executive"):
+def export_docx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
     try:
+        target = workspace_id or dataset_id
         if audience.lower() in ("ceo", "cfo", "coo", "cmo", "sales director", "supply chain head", "board"):
-            report = _get_role_report_data(dataset_id, audience.upper())
+            report = _get_role_report_data(target, audience.upper())
             title = report.get("report_title", f"{audience} Report")
         else:
-            report = _get_report_data(dataset_id)
+            report = _get_report_data(target)
             title = "DecisionLens Executive Report"
 
         docx_bytes = DOCXExporter.export(report, title=title)
@@ -310,13 +338,14 @@ def export_docx(dataset_id: Optional[str] = None, audience: str = "executive"):
 
 
 @router.get("/export/pptx")
-def export_pptx(dataset_id: Optional[str] = None, audience: str = "executive"):
+def export_pptx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
     try:
+        target = workspace_id or dataset_id
         if audience.lower() in ("ceo", "cfo", "coo", "cmo", "sales director", "supply chain head", "board"):
-            report = _get_role_report_data(dataset_id, audience.upper())
+            report = _get_role_report_data(target, audience.upper())
             title = report.get("report_title", f"{audience} Report")
         else:
-            report = _get_report_data(dataset_id)
+            report = _get_report_data(target)
             title = "DecisionLens Executive Report"
 
         pptx_bytes = PPTXExporter.export(report, title=title)
@@ -331,10 +360,12 @@ def export_pptx(dataset_id: Optional[str] = None, audience: str = "executive"):
 
 
 @router.get("/role/{audience}")
-def get_role_report(audience: str, dataset_id: Optional[str] = None):
-    return _get_role_report_data(dataset_id, audience.upper())
+def get_role_report(audience: str, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+    target = workspace_id or dataset_id
+    return _get_role_report_data(target, audience.upper())
 
 
 @router.get("/role")
-def get_role_report_query(audience: str, dataset_id: Optional[str] = None):
-    return _get_role_report_data(dataset_id, audience.upper())
+def get_role_report_query(audience: str, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+    target = workspace_id or dataset_id
+    return _get_role_report_data(target, audience.upper())

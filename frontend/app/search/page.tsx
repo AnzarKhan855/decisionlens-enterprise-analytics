@@ -241,32 +241,35 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="py-6 sm:py-8 space-y-6">
       {/* Search Header */}
       <div className="bg-surface premium-card border border-border-color shadow-sm p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold text-text-primary">Global Search</h1>
           <span className="text-[10px] font-mono text-text-muted bg-surface-muted px-2 py-1 rounded-lg border border-border-color flex items-center gap-1">
-            <Command className="w-3 h-3" /> Cmd+K
+            <Command className="w-3 h-3" aria-hidden="true" /> Cmd+K
           </span>
         </div>
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" aria-hidden="true" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search reports, workspaces, datasets, forecasts..."
+            aria-label="Search reports, workspaces, datasets, forecasts"
             className="search-input w-full pl-12 pr-4 py-4 text-sm border border-border-color rounded-2xl outline-none focus:border-primary-600 bg-surface-muted focus:bg-surface transition shadow-sm"
             autoFocus
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded p-1"
+              aria-label="Clear search input"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           )}
         </div>

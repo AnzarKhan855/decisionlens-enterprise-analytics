@@ -1,29 +1,31 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
 import os
-import time
 import threading
 import uuid
 
-from app.core.config import settings
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+from app.api.v1.business_memory_api import router as business_memory_router
+from app.api.v1.copilot_api import router as copilot_router
 from app.api.v1.routes import api_router
 from app.api.v1.workspace_upload import router as workspace_upload_router
-from app.api.v1.copilot_api import router as copilot_router
-from app.api.v1.business_memory_api import router as business_memory_router
-
+from app.core.config import settings
 from app.database.connection import create_tables
-from app.database.mongodb import ping_mongodb, ensure_indexes
-from app.services.email_service import ResendEmailService
+from app.database.mongodb import ensure_indexes, ping_mongodb
 from app.logging.logger import get_logger
+from app.services.email_service import ResendEmailService
 
 logger = get_logger(__name__)
 
+from fastapi import Depends
+
 from app.api.v1.endpoints.diagnostics import router as diagnostics_router
+from app.core.rbac import ORGANIZATION_ADMIN, SUPER_ADMIN, get_current_user_from_token, require_role
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.observability.error_handler import GlobalErrorHandlerMiddleware, RequestState
-from app.observability.health import get_platform_health, get_full_health
+from app.observability.health import get_full_health, get_platform_health
 
 _app_metrics = {
     "total_requests": 0,
@@ -81,9 +83,11 @@ app.add_middleware(
 
 from app.middleware.performance_middleware import HighResolutionPerformanceMiddleware
 
+app.add_middleware(HighResolutionPerformanceMiddleware)
 app.add_middleware(GlobalErrorHandlerMiddleware)
 app.add_middleware(RateLimitMiddleware)
-app.add_middleware(HighResolutionPerformanceMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
@@ -101,7 +105,7 @@ async def workspace_context_middleware(request: Request, call_next):
     return response
 
 
-@app.get("/api/v1/metrics")
+@app.get("/api/v1/metrics", dependencies=[Depends(require_role([SUPER_ADMIN, ORGANIZATION_ADMIN]))])
 def get_metrics():
     with _app_metrics["_lock"]:
         total = _app_metrics["total_requests"]
@@ -114,15 +118,15 @@ def get_metrics():
         }
 
 
-@app.get("/api/v1/metrics/duckdb")
+@app.get("/api/v1/metrics/duckdb", dependencies=[Depends(require_role([SUPER_ADMIN, ORGANIZATION_ADMIN]))])
 def get_duckdb_metrics():
     from app.database.duckdb_engine import DuckDBEngine
     return DuckDBEngine.get_stats()
 
 
-@app.get("/api/v1/metrics/cache")
+@app.get("/api/v1/metrics/cache", dependencies=[Depends(require_role([SUPER_ADMIN, ORGANIZATION_ADMIN]))])
 def get_cache_metrics():
-    from app.cache.memory_cache import TTLCache, QueryResultCache
+    from app.cache.memory_cache import QueryResultCache
     from app.cache.redis_cache import RedisCacheManager
     from app.ingestion.semantic_profiler import _profile_cache as profile_cache
     from app.ingestion.workspace_discovery import discovery_cache, file_listing_cache
@@ -138,7 +142,6 @@ def get_cache_metrics():
 
 @app.on_event("startup")
 def startup_event():
-    import os
     logger.info(
         "DecisionLens Enterprise Platform Started",
         extra={"event": "startup", "version": "2.0.0"}
@@ -176,12 +179,12 @@ def health_check():
     return get_platform_health()
 
 
-@app.get("/api/v1/status")
+@app.get("/api/v1/status", dependencies=[Depends(get_current_user_from_token)])
 def platform_status():
     return get_full_health()
 
 
-@app.get("/api/v1/system")
+@app.get("/api/v1/system", dependencies=[Depends(get_current_user_from_token)])
 def system_info():
     return {
         "status": "operational",

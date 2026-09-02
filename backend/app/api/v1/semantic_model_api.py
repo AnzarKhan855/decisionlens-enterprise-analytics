@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Query, Body, HTTPException
+from fastapi import APIRouter, Query, Body, HTTPException, Depends
 from typing import Optional, Dict, Any, List
+from app.core.rbac import get_current_user_from_token
 
 from app.semantic_model.engine import (
     build_semantic_model,
@@ -10,7 +11,11 @@ from app.semantic_model.engine import (
     export_glossary_api,
 )
 
-router = APIRouter(prefix="/semantic-model", tags=["Enterprise Semantic Model"])
+router = APIRouter(
+    prefix="/semantic-model",
+    tags=["Enterprise Semantic Model"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/workspace/{workspace_id}")

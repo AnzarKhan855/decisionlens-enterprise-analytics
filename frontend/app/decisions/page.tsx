@@ -49,6 +49,9 @@ export default function ExecutiveDecisionCenterPage() {
 
   useEffect(() => {
     fetchWorkspaceAndDecisions();
+    const handleWsChange = () => fetchWorkspaceAndDecisions();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   async function fetchWorkspaceAndDecisions() {
@@ -60,8 +63,14 @@ export default function ExecutiveDecisionCenterPage() {
       const list = wsJson.workspaces || [];
       setWorkspaces(list);
 
-      if (list.length > 0) {
-        const currentWs = list[0];
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+      const currentWs =
+        (storedId && list.find((w: any) => w.workspace_id === storedId)) ||
+        (wsJson.active_workspace_id && list.find((w: any) => w.workspace_id === wsJson.active_workspace_id)) ||
+        list.find((w: any) => w.is_active) ||
+        null;
+
+      if (currentWs) {
         const dashRes = await api.get("/dashboard/dynamic", { params: { workspace_id: currentWs.workspace_id } });
         const dashJson = dashRes.data;
         const actionItems = dashJson.action_items || [];

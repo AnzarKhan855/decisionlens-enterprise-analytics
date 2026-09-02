@@ -36,12 +36,62 @@ def get_collection(name: str):
     return get_database()[name]
 
 
+from datetime import date, datetime, timezone
+from typing import Any
+
+
+def sanitize_mongo_document(obj: Any) -> Any:
+    """
+    Recursively converts Python datetime.date instances into datetime.datetime objects
+    (with UTC timezone) to ensure PyMongo BSON encoding compatibility without raising:
+    'Invalid document: cannot encode object: datetime.date(...)'.
+    Existing datetime.datetime objects remain unaffected.
+    """
+    if type(obj) is date:
+        return datetime(obj.year, obj.month, obj.day, tzinfo=timezone.utc)
+    elif isinstance(obj, dict):
+        return {k: sanitize_mongo_document(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_mongo_document(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return tuple(sanitize_mongo_document(v) for v in obj)
+    return obj
+
+
 class _CollectionProxy:
     def __init__(self, name: str):
         self._name = name
 
     def _get_coll(self):
         return get_collection(self._name)
+
+    def insert_one(self, document, *args, **kwargs):
+        sanitized = sanitize_mongo_document(document)
+        return self._get_coll().insert_one(sanitized, *args, **kwargs)
+
+    def insert_many(self, documents, *args, **kwargs):
+        sanitized = [sanitize_mongo_document(d) for d in documents]
+        return self._get_coll().insert_many(sanitized, *args, **kwargs)
+
+    def update_one(self, filter, update, *args, **kwargs):
+        sanitized_filter = sanitize_mongo_document(filter)
+        sanitized_update = sanitize_mongo_document(update)
+        return self._get_coll().update_one(sanitized_filter, sanitized_update, *args, **kwargs)
+
+    def update_many(self, filter, update, *args, **kwargs):
+        sanitized_filter = sanitize_mongo_document(filter)
+        sanitized_update = sanitize_mongo_document(update)
+        return self._get_coll().update_many(sanitized_filter, sanitized_update, *args, **kwargs)
+
+    def replace_one(self, filter, replacement, *args, **kwargs):
+        sanitized_filter = sanitize_mongo_document(filter)
+        sanitized_rep = sanitize_mongo_document(replacement)
+        return self._get_coll().replace_one(sanitized_filter, sanitized_rep, *args, **kwargs)
+
+    def find_one_and_update(self, filter, update, *args, **kwargs):
+        sanitized_filter = sanitize_mongo_document(filter)
+        sanitized_update = sanitize_mongo_document(update)
+        return self._get_coll().find_one_and_update(sanitized_filter, sanitized_update, *args, **kwargs)
 
     def __getattr__(self, item: str):
         return getattr(self._get_coll(), item)
@@ -90,6 +140,8 @@ executive_briefings = _CollectionProxy("executive_briefings")
 
 def ensure_indexes():
     db = get_database()
+    db.users.create_index([("email", ASCENDING)], unique=True, sparse=True)
+    db.users.create_index([("user_id", ASCENDING)], unique=True, sparse=True)
     db.datasets.create_index([("workspace_id", ASCENDING), ("uploaded_at", DESCENDING)])
     db.datasets.create_index([("file_path", ASCENDING)], unique=True)
     db.datasets.create_index([("dataset_type", ASCENDING)])
@@ -118,6 +170,9 @@ def ensure_indexes():
     db.generated_sql.create_index([("session_id", ASCENDING), ("timestamp", DESCENDING)])
     db.audit_logs.create_index([("workspace_id", ASCENDING), ("timestamp", DESCENDING)])
     db.audit_logs.create_index([("action", ASCENDING), ("timestamp", DESCENDING)])
+    db.audit_logs.create_index([("workspace_id", ASCENDING), ("action", ASCENDING)])
+    db.audit_logs.create_index([("workspace_id", ASCENDING), ("status", ASCENDING)])
+    db.workspaces.create_index([("owner_id", ASCENDING), ("created_at", DESCENDING)])
     db.report_history.create_index([("workspace_id", ASCENDING), ("timestamp", DESCENDING)])
     db.insight_history.create_index([("workspace_id", ASCENDING), ("timestamp", DESCENDING)])
     db.recommendation_history.create_index([("workspace_id", ASCENDING), ("timestamp", DESCENDING)])

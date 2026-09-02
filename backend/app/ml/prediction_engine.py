@@ -251,7 +251,20 @@ class UniversalPredictionEngine:
         trend_measures = [m for m in measures if m in trends and len(trends[m]) >= cls.MIN_OBSERVATIONS_FOR_TS]
         if not trend_measures:
             logger.info("[Forecast] No measures have sufficient trend observations for forecasting.")
-            return []
+            return [
+                Prediction(
+                    model_type="Time-Series Forecasting",
+                    model_used="Skipped (Insufficient Observations)",
+                    prediction=f"Forecasting skipped: dataset contains fewer than {cls.MIN_OBSERVATIONS_FOR_TS} trend observations.",
+                    confidence=0.0,
+                    evidence=f"Time column '{temporal[0]}' detected. Candidate measures: {', '.join(measures[:2])}.",
+                    time_horizon="N/A",
+                    risk_level="LOW",
+                    recommended_action="Gather more historical time-series data (at least 3 observations) to enable forecasting models.",
+                    feasible=False,
+                    limitation="No measures have sufficient trend observations for forecasting.",
+                )
+            ]
 
         m_col = trend_measures[0]
         t_col = temporal[0]
@@ -261,7 +274,20 @@ class UniversalPredictionEngine:
 
         if len(vals) < cls.MIN_OBSERVATIONS_FOR_TS:
             logger.info("[Forecast] Temporal forecasting unavailable: only %d valid time-series observations.", len(vals))
-            return []
+            return [
+                Prediction(
+                    model_type="Time-Series Forecasting",
+                    model_used="Skipped (Insufficient Observations)",
+                    prediction=f"Forecasting unavailable: only {len(vals)} valid time-series observations found.",
+                    confidence=0.0,
+                    evidence=f"Time column '{t_col}', Metric '{m_col}'. Only {len(vals)} observations available.",
+                    time_horizon="N/A",
+                    risk_level="LOW",
+                    recommended_action="Provide datasets with 3 or more temporal observations.",
+                    feasible=False,
+                    limitation="No measures have sufficient trend observations for forecasting.",
+                )
+            ]
 
         logger.info(
             "[Forecast] Time column: %s, Metric: %s, Frequency: inferred, Training points: %d, Forecast horizon: %s",

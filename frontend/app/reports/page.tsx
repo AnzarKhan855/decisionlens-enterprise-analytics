@@ -198,6 +198,9 @@ export default function SmartReportsPage() {
 
   useEffect(() => {
     fetchAll();
+    const handleWsChange = () => fetchAll();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   async function fetchAll() {
@@ -205,9 +208,20 @@ export default function SmartReportsPage() {
     setError(null);
     try {
       const wsRes = await api.get("/workspaces").catch(() => ({ data: { workspaces: [] } }));
-      setWorkspaces(wsRes.data?.workspaces || []);
+      const wsList = wsRes.data?.workspaces || [];
+      setWorkspaces(wsList);
 
-      const reportRes = await api.get("/reports");
+      const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const urlWs = searchParams?.get("ws");
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+      const targetWsId =
+        urlWs ||
+        storedId ||
+        wsRes.data?.active_workspace_id ||
+        wsList.find((w: Workspace) => w.is_active)?.workspace_id ||
+        (wsList.length > 0 ? wsList[0].workspace_id : undefined);
+
+      const reportRes = await api.get("/reports", { params: targetWsId ? { workspace_id: targetWsId } : {} });
       if (reportRes.data) {
         setReport(reportRes.data);
       } else {
@@ -224,7 +238,14 @@ export default function SmartReportsPage() {
     }
   }
 
-  const activeWs = workspaces.find((w) => w.is_active) || workspaces[0];
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const urlWs = searchParams?.get("ws");
+  const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+  const activeWs =
+    (urlWs && workspaces.find((w) => w.workspace_id === urlWs)) ||
+    (storedId && workspaces.find((w) => w.workspace_id === storedId)) ||
+    workspaces.find((w) => w.is_active) ||
+    (workspaces.length > 0 ? workspaces[0] : null);
   const wsName = activeWs?.name || "Active Workspace";
   const reportSections = report?.report_sections || report?.sections || (report as ReportResponse)?.sections;
 
@@ -419,7 +440,7 @@ export default function SmartReportsPage() {
   const roadmap = reportSections.roadmap_30_90_180 || { next_30_days: [], next_90_days: [], next_180_days: [] };
 
   return (
-    <div className="p-8 space-y-8 print:p-0 print:overflow-visible">
+    <div className="py-6 sm:py-8 space-y-8 print:p-0 print:overflow-visible">
       {/* Header */}
       <div className="premium-card p-5 lg:p-6 border border-border-color shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
@@ -672,7 +693,7 @@ export default function SmartReportsPage() {
             <div className="border-b-2 border-border-strong pb-6 flex items-center justify-between">
               <div>
                 <span className="text-xs font-mono font-bold uppercase tracking-widest text-primary-600">DecisionLens Enterprise Intelligence</span>
-                <h1 className="text-2xl font-extrabold text-text-primary mt-1">Executive Board Report</h1>
+                <h2 className="text-2xl font-extrabold text-text-primary mt-1">Executive Board Report</h2>
                 <p className="text-xs text-text-muted font-medium mt-0.5">Live report for {wsName}</p>
               </div>
               <div className="text-right font-mono text-xs text-text-muted">

@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Query, Body
+from fastapi import APIRouter, Query, Body, Depends
 from typing import Optional, Dict, Any, List
 from app.analytics.collaboration_engine import EnterpriseCollaborationEngine
+from app.core.rbac import get_current_user_from_token
 
-router = APIRouter(prefix="/collaboration", tags=["Enterprise Collaboration Suite (Notion + Teams Spec)"])
+router = APIRouter(
+    prefix="/collaboration",
+    tags=["Enterprise Collaboration Suite (Notion + Teams Spec)"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.post("/comments")

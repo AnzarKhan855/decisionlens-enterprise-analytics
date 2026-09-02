@@ -1,28 +1,23 @@
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
-from fastapi import HTTPException
-import threading
-import logging
+from typing import Dict, Optional, Tuple
 
-from app.database.connection import SessionLocal
-from app.database.storage import ParquetStorageManager
-from app.database.duckdb_engine import DuckDBEngine
 from app.analytics.universal_engine import UniversalAnalyticsEngine
-from app.ingestion.workspace_discovery import WorkspaceDiscoveryEngine
-from app.ingestion.semantic_profiler import SemanticDataProfiler
-from app.semantic_model import build_semantic_model, invalidate_semantic_model_cache
-from app.semantic_model.core import SemanticModel
-from app.schemas.analytics import AnalyticsResult, HealthScore
-from app.dashboard.storyteller import UniversalDashboardStoryteller
-from app.dashboard.cards import _safe_str
-from app.ai.universal_copilot_brain import UniversalAIBrain
 from app.cache.memory_cache import TTLCache
+from app.dashboard.cards import _safe_str
+from app.dashboard.storyteller import UniversalDashboardStoryteller
+from app.database.connection import SessionLocal
+from app.database.duckdb_engine import DuckDBEngine
+from app.database.storage import ParquetStorageManager
+from app.ingestion.semantic_profiler import SemanticDataProfiler
 from app.logging.logger import get_logger
-from app.logging.logger import get_logger
+from app.schemas.analytics import AnalyticsResult, HealthScore
+from app.semantic_model import build_semantic_model
+from app.semantic_model.core import SemanticModel
 from app.validation.chart_validator import validate_charts
 
 logger = get_logger(__name__)
 _dashboard_cache = TTLCache(maxsize=32, ttl=60.0)
+_candidate_score_cache: Dict[str, Tuple[float, Tuple[int, int, int]]] = {}
 
 
 class DynamicDashboardService:
@@ -51,6 +46,17 @@ def _is_measure_column(col_name: str) -> bool:
 
 
 def _score_parquet_candidate(pfile: Path) -> Tuple[int, int, int]:
+    mtime = 0.0
+    try:
+        mtime = pfile.stat().st_mtime
+    except Exception:
+        pass
+    cache_key = str(pfile.resolve())
+    if cache_key in _candidate_score_cache:
+        cached_mtime, cached_score = _candidate_score_cache[cache_key]
+        if abs(cached_mtime - mtime) < 1e-4:
+            return cached_score
+
     numeric_cols = 0
     row_count = 0
     conn = DuckDBEngine.get_connection()
@@ -60,9 +66,10 @@ def _score_parquet_candidate(pfile: Path) -> Tuple[int, int, int]:
         row_count = conn.execute(f"SELECT COUNT(*) FROM read_parquet('{pfile.as_posix()}')").fetchone()[0]
     except Exception as e:
         logger.debug(f"Parquet candidate scoring failed for {pfile}: {str(e)}")
-    finally:
-        conn.close()
-    return numeric_cols, row_count, numeric_cols * 100000 + row_count
+
+    score = (numeric_cols, row_count, numeric_cols * 100000 + row_count)
+    _candidate_score_cache[cache_key] = (mtime, score)
+    return score
 
 
 def _profile_table_score(pfile: Path) -> Tuple[int, int]:
@@ -159,6 +166,9 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
             except Exception as e:
                 logger.debug(f"Unified parquet check failed for {ws_unified}: {str(e)}")
 
+    if active_ws_id:
+        return None
+
     best_path = None
     best_score = 0
     for pfile in STORAGE_DIR.glob("*.parquet"):
@@ -167,8 +177,7 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
         if not pfile.exists():
             continue
         measure_cols, row_count = _profile_table_score(pfile)
-        ws_prefix_bonus = _workspace_prefix_score(pfile, active_ws_id or "")
-        score = ws_prefix_bonus + measure_cols * 10000 + row_count
+        score = measure_cols * 10000 + row_count
         if score > best_score:
             best_score = score
             best_path = pfile
@@ -181,9 +190,6 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
     try:
         from app.services.workspace_service import EnterpriseWorkspaceManager
         target_ws_id = workspace_id or (dataset_id if (dataset_id and dataset_id != "latest") else EnterpriseWorkspaceManager.get_active_workspace_id())
-
-        if target_ws_id:
-            EnterpriseWorkspaceManager.set_active_workspace(target_ws_id)
 
         parquet_path: Optional[Path] = None
         if dataset_id and dataset_id != "latest":
@@ -290,8 +296,19 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
         analytics_result = None
         analytics_dict = {}
         try:
-            analytics_result = UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path, dataset_id=dataset_id)
-            analytics_dict = analytics_result.to_dict()
+            from app.services.analytics_cache_service import AnalyticsCacheService
+            c_dict = AnalyticsCacheService.get_cached(active_ws, parquet_path)
+            if c_dict:
+                try:
+                    analytics_result = AnalyticsResult.from_dict(c_dict)
+                    analytics_dict = c_dict
+                except Exception as cache_parse_err:
+                    logger.debug("[Dashboard] Analytics cache parse warning: %s", cache_parse_err)
+                    analytics_result = None
+
+            if analytics_result is None:
+                analytics_result = UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path, dataset_id=dataset_id)
+                analytics_dict = analytics_result.to_dict()
         except Exception as e:
             logger.error(f"Analytics engine failed for dataset {dataset_id}: {str(e)}")
             analytics_result = AnalyticsResult(
@@ -335,14 +352,14 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
         sql_query = _safe_str(analytics_dict.get("sql_query", ""), "")
         tables_used = analytics_dict.get("tables_used", []) or ([parquet_path.name] if parquet_path else [])
         columns_used = analytics_dict.get("columns_used", []) or []
-        evidence_rows = []
         evidence_items = []
         rows_returned = 0
 
         prediction_result = None
         try:
-            from app.ml.prediction_engine import UniversalPredictionEngine
             from types import SimpleNamespace
+
+            from app.ml.prediction_engine import UniversalPredictionEngine
             partial = SimpleNamespace(
                 trends=analytics_dict.get("trends", {}) or {},
                 correlations=analytics_dict.get("correlations", []) or [],

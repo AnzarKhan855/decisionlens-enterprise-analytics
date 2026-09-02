@@ -21,17 +21,30 @@ export default function LoginPage() {
 
       const res = await api.post("/auth/login", { email, password, role: selectedRole });
       if (res.data.otp_required) {
+        const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const redirectParam = searchParams?.get("redirect");
+        const redirectSuffix = redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : "";
         const devOtp = res.data.dev_otp ? `&dev_otp=${encodeURIComponent(res.data.dev_otp)}` : "";
-        window.location.href = `/verify-otp?email=${encodeURIComponent(email)}${devOtp}`;
+        window.location.href = `/verify-otp?email=${encodeURIComponent(email)}${devOtp}${redirectSuffix}`;
       } else if (res.data.access_token) {
-        localStorage.setItem("decisionlens_access_token", res.data.access_token);
+        const token = res.data.access_token;
+        localStorage.setItem("decisionlens_access_token", token);
         if (res.data.refresh_token) {
           localStorage.setItem("decisionlens_refresh_token", res.data.refresh_token);
         }
         if (res.data.user) {
           localStorage.setItem("decisionlens_user", JSON.stringify(res.data.user));
         }
-        window.location.href = "/dynamic-dashboard";
+
+        // Set session cookie for Next.js Edge Middleware route protection
+        const isSecure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `decisionlens_token=${encodeURIComponent(token)}; Path=/; Max-Age=86400; SameSite=Lax${isSecure};`;
+
+        // Preserve and redirect to target deep link if requested
+        const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const redirectParam = searchParams?.get("redirect");
+        const destination = redirectParam && redirectParam.startsWith("/") ? redirectParam : "/dynamic-dashboard";
+        window.location.href = destination;
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Invalid credentials. Please verify email and password.";

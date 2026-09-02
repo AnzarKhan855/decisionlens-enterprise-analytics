@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from typing import Optional, Dict, Any
 from pathlib import Path
+from app.core.rbac import get_current_user_from_token
 
 from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
 from app.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/intelligence", tags=["Dataset Intelligence Layer"])
+router = APIRouter(
+    prefix="/intelligence",
+    tags=["Dataset Intelligence Layer"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/workspace/{workspace_id}")

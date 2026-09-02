@@ -16,13 +16,13 @@ router = APIRouter(
 
 
 @router.get("")
-def get_strategy_report_active():
+def get_strategy_report_active(workspace_id: Optional[str] = Query(None)):
     try:
         from app.services.workspace_service import EnterpriseWorkspaceManager
-        workspace_id = EnterpriseWorkspaceManager.get_active_workspace_id()
-        if not workspace_id:
+        target_ws = workspace_id or EnterpriseWorkspaceManager.get_active_workspace_id()
+        if not target_ws:
             raise HTTPException(status_code=404, detail="No active workspace found")
-        result = EnterpriseStrategyEngine.analyze(workspace_id)
+        result = EnterpriseStrategyEngine.analyze(target_ws)
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         return result

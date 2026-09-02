@@ -408,7 +408,7 @@ class RetailKPIEngine:
                     SELECT {safe_cat} as category, SUM({safe_rev}) as revenue
                     FROM read_parquet('{path_str}')
                     WHERE {safe_cat} IS NOT NULL
-                    GROUP BY category
+                    GROUP BY 1
                     ORDER BY revenue DESC
                     LIMIT 1
                 """)

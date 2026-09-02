@@ -43,16 +43,25 @@ function VerifyOTPContent() {
 
       const res = await api.post("/auth/verify-otp", { email, otp_code: otpCode });
       if (res.data.access_token) {
-        localStorage.setItem("decisionlens_access_token", res.data.access_token);
+        const token = res.data.access_token;
+        localStorage.setItem("decisionlens_access_token", token);
         if (res.data.refresh_token) {
           localStorage.setItem("decisionlens_refresh_token", res.data.refresh_token);
         }
         if (res.data.user) {
           localStorage.setItem("decisionlens_user", JSON.stringify(res.data.user));
         }
+
+        // Set session cookie for Next.js Edge Middleware route protection
+        const isSecure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `decisionlens_token=${encodeURIComponent(token)}; Path=/; Max-Age=86400; SameSite=Lax${isSecure};`;
+
+        const redirectParam = searchParams.get("redirect");
+        const destination = redirectParam && redirectParam.startsWith("/") ? redirectParam : "/dynamic-dashboard";
+
         setSuccess("Verification successful! Initializing secure session...");
         redirectTimerRef.current = setTimeout(() => {
-          window.location.href = "/dynamic-dashboard";
+          window.location.href = destination;
         }, 800);
       }
     } catch (err) {

@@ -89,9 +89,15 @@ export default function BusinessProfilePage() {
 
       // Load active workspace profile
       const wsRes = await api.get("/workspaces").catch(() => ({ data: { workspaces: [] } }));
-      const list = wsRes.data.workspaces || [];
-      if (list.length > 0) {
-        const activeWs = list[0];
+      const list = wsRes.data?.workspaces || [];
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+      const activeWs =
+        (storedId && list.find((w: any) => w.workspace_id === storedId)) ||
+        (wsRes.data?.active_workspace_id && list.find((w: any) => w.workspace_id === wsRes.data?.active_workspace_id)) ||
+        list.find((w: any) => w.is_active) ||
+        (list.length > 0 ? list[0] : null);
+
+      if (activeWs) {
         const res = await api.get(`/workspaces/${activeWs.workspace_id}/business-profile`).catch(() => ({ data: null }));
         if (res?.data) {
           setProfile(res.data);
@@ -111,12 +117,18 @@ export default function BusinessProfilePage() {
 
   useEffect(() => {
     loadAllData();
+    const handleWsChange = () => loadAllData();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   function handleLogout() {
     localStorage.removeItem("decisionlens_access_token");
     localStorage.removeItem("decisionlens_user");
     localStorage.removeItem("decisionlens_active_workspace");
+    if (typeof document !== "undefined") {
+      document.cookie = "decisionlens_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    }
     addToast({ type: "info", title: "Signed out", description: "You have been logged out successfully." });
     window.location.href = "/login";
   }

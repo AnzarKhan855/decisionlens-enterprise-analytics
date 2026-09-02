@@ -147,7 +147,8 @@ export default function ScenarioCommandCenter() {
       setLoadingLevers(true);
       setError(null);
       try {
-        const res = await api.get("/analytics/scenario/levers");
+        const storedWs = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+        const res = await api.get("/analytics/scenario/levers", { params: storedWs ? { workspace_id: storedWs } : {} });
         const data: LeversResponse = res.data || {};
         setLevers(data.available_levers || []);
         setPresets(data.presets || []);
@@ -162,6 +163,9 @@ export default function ScenarioCommandCenter() {
       }
     }
     fetchLevers();
+    const handleWsChange = () => fetchLevers();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   function handleChange(leverId: string, value: number) {
@@ -224,9 +228,13 @@ export default function ScenarioCommandCenter() {
         { name: "Recalculating predictive forecast & impact", status: "pending" },
       ]);
 
+      const storedWs = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
       const res = await api.post("/analytics/scenario/simulate", {
         changes: changesPayload,
-      }, { signal: controller.signal });
+      }, {
+        params: storedWs ? { workspace_id: storedWs } : {},
+        signal: controller.signal
+      });
 
       setStages([
         { name: "Evaluating lever assumptions (Revenue, Quantity, Pricing)", status: "completed" },

@@ -20,6 +20,7 @@ export function activateAndSyncWorkspace(data: any): string | null {
   if (wsId) {
     localStorage.setItem("decisionlens_active_workspace", wsId);
     localStorage.setItem("decisionlens_user_workspace", wsId);
+    window.dispatchEvent(new CustomEvent("decisionlens:workspace_changed", { detail: { workspace_id: wsId } }));
   }
 
   // Purge stale in-memory API cache after upload or activation
@@ -74,21 +75,25 @@ export async function resolveActiveWorkspace(): Promise<Workspace | null> {
       console.warn("[WorkspaceResolver] getCached /workspaces failed", err);
       return null;
     });
-    if (listRes && listRes.workspaces && listRes.workspaces.length > 0) {
-      const matched = listRes.workspaces.find((w: any) => w.workspace_id === storedId) || listRes.workspaces[0];
-      try {
-        const actRes = await apiPost<{ success: boolean; workspace?: Workspace }>(
-          `/workspaces/${matched.workspace_id}/activate`
-        );
-        if (actRes && actRes.success && actRes.workspace) {
-          localStorage.setItem("decisionlens_active_workspace", matched.workspace_id);
-          localStorage.setItem("decisionlens_user_workspace", matched.workspace_id);
-          return matched;
+      const matched =
+        listRes.workspaces.find((w: any) => w.workspace_id === storedId) ||
+        listRes.workspaces.find((w: any) => w.is_active) ||
+        listRes.workspaces.find((w: any) => w.workspace_id === listRes.active_workspace_id) ||
+        (listRes.workspaces.length > 0 ? listRes.workspaces[0] : null);
+      if (matched) {
+        try {
+          const actRes = await apiPost<{ success: boolean; workspace?: Workspace }>(
+            `/workspaces/${matched.workspace_id}/activate`
+          );
+          if (actRes && actRes.success && actRes.workspace) {
+            localStorage.setItem("decisionlens_active_workspace", matched.workspace_id);
+            localStorage.setItem("decisionlens_user_workspace", matched.workspace_id);
+            return matched;
+          }
+        } catch (err) {
+          console.warn("[WorkspaceResolver] Activation failed", err);
         }
-      } catch (err) {
-        console.warn("[WorkspaceResolver] Activation failed", err);
       }
-    }
 
     localStorage.removeItem("decisionlens_active_workspace");
     localStorage.removeItem("decisionlens_user_workspace");

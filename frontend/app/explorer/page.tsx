@@ -49,14 +49,27 @@ export default function DatasetExplorerPage() {
 
   useEffect(() => {
     loadExplorer();
+    const handleWsChange = () => loadExplorer();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   async function loadExplorer() {
     try {
       setLoading(true);
 
+      const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const urlWs = searchParams?.get("ws");
+      const storedActive = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+
       const wsRes = await api.get("/workspaces").catch(() => ({ data: { workspaces: [], active_workspace_id: null } }));
-      const activeId = wsRes.data.active_workspace_id || (wsRes.data.workspaces?.[0]?.workspace_id);
+      const wsList = wsRes.data?.workspaces || [];
+      const activeId =
+        urlWs ||
+        storedActive ||
+        wsRes.data?.active_workspace_id ||
+        wsList.find((w: any) => w.is_active)?.workspace_id ||
+        (wsList.length > 0 ? wsList[0].workspace_id : null);
 
       if (!activeId) {
         setTables([]);

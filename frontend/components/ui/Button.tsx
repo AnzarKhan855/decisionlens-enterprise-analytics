@@ -70,6 +70,7 @@ export default function Button({
         ${className}
       `}
       disabled={disabled || loading}
+      aria-busy={loading ? "true" : undefined}
       {...props}
     >
       {loading && !isLink ? (
@@ -83,7 +84,7 @@ export default function Button({
       ) : icon ? (
         <span className="shrink-0 flex items-center" aria-hidden="true">{icon}</span>
       ) : null}
-      {loading && loadingText ? loadingText : !loading && children}
+      {loading && loadingText ? loadingText : children}
     </button>
   );
 }

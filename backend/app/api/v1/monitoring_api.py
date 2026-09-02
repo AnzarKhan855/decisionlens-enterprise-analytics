@@ -1,7 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.analytics.system_telemetry_engine import SystemTelemetryEngine
+from app.core.rbac import require_role, SUPER_ADMIN, ORGANIZATION_ADMIN
 
-router = APIRouter(prefix="/monitoring", tags=["Enterprise Operations Monitoring (Grafana Spec)"])
+router = APIRouter(
+    prefix="/monitoring",
+    tags=["Enterprise Operations Monitoring (Grafana Spec)"],
+    dependencies=[Depends(require_role([SUPER_ADMIN, ORGANIZATION_ADMIN]))]
+)
 
 
 @router.get("/metrics")

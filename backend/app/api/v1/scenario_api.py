@@ -78,9 +78,10 @@ def _get_parquet_path(db, dataset_id: Optional[str] = None, workspace_id: Option
     return None
 
 
-def _get_workspace_id(db, dataset_id: Optional[str] = None) -> str:
-    if dataset_id and dataset_id != "latest":
-        return dataset_id
+def _get_workspace_id(db, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None) -> str:
+    target = workspace_id or dataset_id
+    if target and target != "latest":
+        return target
 
     try:
         from app.services.workspace_service import EnterpriseWorkspaceManager
@@ -98,29 +99,30 @@ def _get_workspace_id(db, dataset_id: Optional[str] = None) -> str:
 
 def _build_semantic_model(workspace_id: str):
     try:
-        from app.semantic_model import build_semantic_model
+        from app.semantic_model.engine import build_semantic_model
         return build_semantic_model(workspace_id=workspace_id, force_rebuild=False)
-    except Exception:
+    except Exception as exc:
+        logger.warning("[Scenario] Failed to build semantic model for %s: %s", workspace_id, exc)
         return None
 
 
 def _build_analytics_result(parquet_path, workspace_id: str):
     try:
         from app.services.analytics_cache_service import AnalyticsCacheService
-        from app.schemas.analytics import AnalyticsResult
-
         c_dict = AnalyticsCacheService.get_cached(workspace_id, parquet_path)
         if c_dict:
-            try:
-                return AnalyticsResult.from_dict(c_dict)
-            except Exception:
-                pass
+            from app.schemas.analytics import AnalyticsResult
+            return AnalyticsResult.model_validate(c_dict)
+    except Exception:
+        pass
 
-        from app.analytics.universal_engine import UniversalAnalyticsEngine
+    try:
         from app.semantic_model.core import SemanticModel
+        from app.analytics.universal_engine import UniversalAnalyticsEngine
         sm = SemanticModel(workspace_id=workspace_id, domain="Generic Business", dataset_type="Unknown")
         return UniversalAnalyticsEngine.analyze(sm, parquet_path=parquet_path, workspace_id=workspace_id)
-    except Exception:
+    except Exception as exc:
+        logger.warning("[Scenario] Failed to build analytics result for %s: %s", workspace_id, exc)
         return None
 
 
@@ -144,34 +146,36 @@ def _get_cached_profile(parquet_path):
 
 
 @router.get("/scenario/levers")
-def get_scenario_levers(dataset_id: Optional[str] = Query(None)):
+def get_scenario_levers(dataset_id: Optional[str] = Query(None), workspace_id: Optional[str] = Query(None)):
     """
     Discover dynamically available scenario levers from the uploaded dataset.
     Returns HTTP 200 with empty available_levers list when no dataset is present.
     """
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
+        target_ws = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id, target_ws)
         if not parquet_path:
             return {
                 "available_levers": [],
                 "unavailable_reasons": ["No dataset uploaded to active workspace yet."],
                 "total_columns": 0,
                 "total_rows": 0,
-                "dataset_id": dataset_id or "none"
+                "dataset_id": target_ws or "none"
             }
 
-        workspace_id = _get_workspace_id(db, dataset_id)
+        ws_id = _get_workspace_id(db, dataset_id, target_ws)
         profile = _get_cached_profile(parquet_path)
-        semantic_model = _build_semantic_model(workspace_id)
-        analytics_result = _build_analytics_result(parquet_path, workspace_id)
+        semantic_model = _build_semantic_model(ws_id)
+        analytics_result = _build_analytics_result(parquet_path, ws_id)
 
         result = ScenarioLeverEngine.discover_levers(
             profile=profile,
             semantic_model=semantic_model,
             analytics_result=analytics_result,
         )
-        result["dataset_id"] = dataset_id or "latest"
+        result["dataset_id"] = target_ws or "latest"
+        result["workspace_id"] = ws_id
         return result
     except HTTPException:
         raise
@@ -183,29 +187,35 @@ def get_scenario_levers(dataset_id: Optional[str] = Query(None)):
 
 
 @router.post("/scenario/simulate")
-def simulate_scenario_data_driven(request: ScenarioSimulateRequest, dataset_id: Optional[str] = Query(None)):
+def simulate_scenario_data_driven(
+    request: ScenarioSimulateRequest,
+    dataset_id: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None)
+):
     """
     Simulate scenario using dynamically discovered levers.
     """
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
+        target_ws = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id, target_ws)
         if not parquet_path:
             raise HTTPException(status_code=400, detail="No dataset uploaded to active workspace. Upload a dataset to run scenario simulation.")
-        workspace_id = _get_workspace_id(db, dataset_id)
+        ws_id = _get_workspace_id(db, dataset_id, target_ws)
         profile = _get_cached_profile(parquet_path)
-        semantic_model = _build_semantic_model(workspace_id)
-        analytics_result = _build_analytics_result(parquet_path, workspace_id)
+        semantic_model = _build_semantic_model(ws_id)
+        analytics_result = _build_analytics_result(parquet_path, ws_id)
 
         changes = [c.model_dump() if hasattr(c, "model_dump") else c for c in request.changes]
         result = ScenarioLeverEngine.simulate(
-            workspace_id=workspace_id,
+            workspace_id=ws_id,
             changes=changes,
             profile=profile,
             semantic_model=semantic_model,
             analytics_result=analytics_result,
         )
-        result["dataset_id"] = dataset_id or "latest"
+        result["dataset_id"] = target_ws or "latest"
+        result["workspace_id"] = ws_id
         return result
     except HTTPException:
         raise

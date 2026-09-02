@@ -58,8 +58,20 @@ export default function AuditLogsPage() {
     }
   }
 
-  function handleExportCSV() {
-    window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1"}/audit/export-csv`, "_blank");
+  async function handleExportCSV() {
+    try {
+      const res = await api.get("/audit/export-csv", { responseType: "blob" });
+      const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.setAttribute("download", `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Failed to export audit logs CSV:", err);
+    }
   }
 
   const filteredLogs = logs.filter((log) => {
@@ -98,81 +110,88 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
-          {/* Page Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-primary-600 mb-1">
-                <Activity className="w-4 h-4" /> Audit Logs
-              </div>
-              <h1 className="text-2xl font-bold text-text-primary">Enterprise Audit Trail</h1>
-              <p className="text-sm text-text-muted mt-1 font-medium">
-                Monitor all actions, events, and access across the platform
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExportCSV}
-                className="px-4 py-2 bg-surface hover:bg-surface-muted text-text-primary text-xs font-bold rounded-xl border border-border-color transition-all flex items-center gap-2"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export CSV
-              </button>
-              <button
-                onClick={fetchAuditLogs}
-                className="px-4 py-2 bg-background hover:bg-surface-muted text-text-primary text-xs font-bold rounded-xl transition-all flex items-center gap-2"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Refresh
-              </button>
-            </div>
+    <div className="py-6 sm:py-8 space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-widest text-primary-600 mb-1">
+            <Activity className="w-4 h-4" aria-hidden="true" /> Audit Logs
           </div>
+          <h1 className="text-2xl font-bold text-text-primary">Enterprise Audit Trail</h1>
+          <p className="text-sm text-text-muted mt-1 font-medium">
+            Monitor all actions, events, and access across the platform
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-4 py-2 bg-surface hover:bg-surface-muted text-text-primary text-xs font-bold rounded-xl border border-border-color transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label="Export audit logs to CSV"
+          >
+            <Download className="w-3.5 h-3.5" aria-hidden="true" />
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={fetchAuditLogs}
+            className="px-4 py-2 bg-background hover:bg-surface-muted text-text-primary text-xs font-bold rounded-xl transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label="Refresh audit logs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
+      </div>
 
-          {/* Filters */}
-          <div className="bg-surface premium-card rounded-2xl border border-border-color p-4 flex flex-col md:flex-row md:items-center gap-4">
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search by user, action, or resource..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-surface-muted border border-border-color rounded-xl text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-primary-500 transition-colors"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Tag className="w-3.5 h-3.5 text-text-muted" />
-                <select
-                  value={actionFilter}
-                  onChange={(e) => setActionFilter(e.target.value)}
-                  className="text-xs font-semibold text-text-primary bg-surface-muted border border-border-color rounded-lg px-3 py-2.5 outline-none cursor-pointer"
-                >
-                  <option value="all">All Actions</option>
-                  {actions.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Filter className="w-3.5 h-3.5 text-text-muted" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="text-xs font-semibold text-text-primary bg-surface-muted border border-border-color rounded-lg px-3 py-2.5 outline-none cursor-pointer"
-                >
-                  <option value="all">All Statuses</option>
-                  {statuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+      {/* Filters */}
+      <div className="bg-surface premium-card rounded-2xl border border-border-color p-4 flex flex-col md:flex-row md:items-center gap-4">
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+          <input
+            type="text"
+            placeholder="Search by user, action, or resource..."
+            aria-label="Search by user, action, or resource"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-surface-muted border border-border-color rounded-xl text-xs text-text-primary placeholder:text-text-muted outline-none focus:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/20 transition-colors"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Tag className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
+            <select
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              aria-label="Filter audit logs by action"
+              className="text-xs font-semibold text-text-primary bg-surface-muted border border-border-color rounded-lg px-3 py-2.5 outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <option value="all">All Actions</option>
+              {actions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-text-muted" aria-hidden="true" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter audit logs by status"
+              className="text-xs font-semibold text-text-primary bg-surface-muted border border-border-color rounded-lg px-3 py-2.5 outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <option value="all">All Statuses</option>
+              {statuses.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
           {/* Loading State */}
           {loading && (

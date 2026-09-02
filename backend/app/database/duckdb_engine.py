@@ -1,15 +1,15 @@
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-import duckdb
-import pandas as pd
-import threading
-import time
 import os
 import re
-
 import sys
-from app.resilience.retry import with_retry, CircuitBreaker, get_circuit_breaker
-from app.security.input_sanitizer import InputSanitizer
+import threading
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import duckdb
+import pandas as pd
+
+from app.resilience.retry import get_circuit_breaker, with_retry
 
 is_pytest = "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules
 _duckdb_cb = get_circuit_breaker("duckdb", failure_threshold=500 if is_pytest else 15, recovery_timeout=5.0)
@@ -49,6 +49,8 @@ class DuckDBEngine:
     _query_count: int = 0
     _total_duration: float = 0.0
     _thread_local = threading.local()
+
+    _metadata_cache: Dict[str, Tuple[float, Any]] = {}
 
     def __init__(self):
         raise RuntimeError("Use DuckDBEngine.get_connection() or .instance()")
@@ -90,7 +92,6 @@ class DuckDBEngine:
                 try:
                     cls._conn.execute("SELECT 1")
                     cls._last_used = now
-                    return cls._conn
                 except Exception:
                     try:
                         cls._conn.close()
@@ -98,18 +99,25 @@ class DuckDBEngine:
                         pass
                     cls._conn = None
 
-            if _duckdb_cb._is_open():
-                raise Exception("DuckDB circuit breaker is open")
+            if cls._conn is None:
+                if _duckdb_cb._is_open():
+                    raise Exception("DuckDB circuit breaker is open")
 
-            if cls._persistent_path:
-                conn = duckdb.connect(database=cls._persistent_path)
-            else:
-                conn = duckdb.connect(database=":memory:")
+                if cls._persistent_path:
+                    conn = duckdb.connect(database=cls._persistent_path)
+                else:
+                    conn = duckdb.connect(database=":memory:")
 
-            cls._configure_connection(conn)
-            cls._conn = conn
-            cls._last_used = now
-            return conn
+                cls._configure_connection(conn)
+                cls._conn = conn
+                cls._last_used = now
+
+            try:
+                cur = cls._conn.cursor()
+                cls._thread_local.conn = cur
+                return cur
+            except Exception:
+                return cls._conn
 
     @classmethod
     def get_thread_connection(cls):
@@ -135,8 +143,9 @@ class DuckDBEngine:
 
     @classmethod
     def _configure_connection(cls, conn):
-        conn.execute("SET threads TO 4")
-        conn.execute("SET memory_limit TO '2GB'")
+        num_threads = min(os.cpu_count() or 4, 8)
+        conn.execute(f"SET threads TO {num_threads}")
+        conn.execute("SET memory_limit TO '4GB'")
         conn.execute("SET enable_http_metadata_cache TO true")
         conn.execute("PRAGMA enable_progress_bar=false")
         conn.execute("PRAGMA enable_object_cache=true")
@@ -192,7 +201,18 @@ class DuckDBEngine:
     @classmethod
     def get_schema(cls, parquet_path: Path) -> Dict[str, str]:
         path_str = _validate_parquet_path(parquet_path)
-        sql = f"DESCRIBE SELECT * FROM read_parquet(?)"
+        mtime = 0.0
+        try:
+            mtime = Path(path_str).stat().st_mtime
+        except Exception:
+            pass
+        cache_key = f"schema:{path_str}"
+        if cache_key in cls._metadata_cache:
+            cached_mtime, cached_val = cls._metadata_cache[cache_key]
+            if abs(cached_mtime - mtime) < 1e-4:
+                return cached_val
+
+        sql = "DESCRIBE SELECT * FROM read_parquet(?)"
         conn = cls.get_connection()
         start = time.perf_counter()
         try:
@@ -201,7 +221,9 @@ class DuckDBEngine:
             with cls._lock:
                 cls._query_count += 1
                 cls._total_duration += elapsed
-            return {row[0]: row[1] for row in res}
+            schema_dict = {row[0]: row[1] for row in res}
+            cls._metadata_cache[cache_key] = (mtime, schema_dict)
+            return schema_dict
         except Exception:
             elapsed = time.perf_counter() - start
             with cls._lock:
@@ -212,7 +234,18 @@ class DuckDBEngine:
     @classmethod
     def get_row_count(cls, parquet_path: Path) -> int:
         path_str = _validate_parquet_path(parquet_path)
-        sql = f"SELECT COUNT(*) FROM read_parquet(?)"
+        mtime = 0.0
+        try:
+            mtime = Path(path_str).stat().st_mtime
+        except Exception:
+            pass
+        cache_key = f"row_count:{path_str}"
+        if cache_key in cls._metadata_cache:
+            cached_mtime, cached_val = cls._metadata_cache[cache_key]
+            if abs(cached_mtime - mtime) < 1e-4:
+                return cached_val
+
+        sql = "SELECT COUNT(*) FROM read_parquet(?)"
         conn = cls.get_connection()
         start = time.perf_counter()
         try:
@@ -221,6 +254,7 @@ class DuckDBEngine:
             with cls._lock:
                 cls._query_count += 1
                 cls._total_duration += elapsed
+            cls._metadata_cache[cache_key] = (mtime, result)
             return result
         except Exception:
             elapsed = time.perf_counter() - start
@@ -232,7 +266,7 @@ class DuckDBEngine:
     @classmethod
     def preview(cls, parquet_path: Path, limit: int = 10) -> List[Dict[str, Any]]:
         path_str = _validate_parquet_path(parquet_path)
-        sql = f"SELECT * FROM read_parquet(?) LIMIT ?"
+        sql = "SELECT * FROM read_parquet(?) LIMIT ?"
         return cls.query(sql, [path_str, limit])
 
     @classmethod

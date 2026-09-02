@@ -1,0 +1,56 @@
+{
+  "login_validation": {
+    "empty_submit_handled": true,
+    "html5_email_validation": true,
+    "wrong_credentials_error_shown": true
+  },
+  "login_valid_admin": {
+    "redirect_url": "http://localhost:3000/dynamic-dashboard",
+    "success": true,
+    "token_stored": true,
+    "user_stored": true,
+    "active_workspace": "test-orlys-enterprise"
+  },
+  "remember_me": {},
+  "registration_edge_cases": {},
+  "forgot_password": {
+    "response_handled": true
+  },
+  "logout_flow": {
+    "redirect_url": "http://localhost:3000/login",
+    "token_cleared": true,
+    "user_cleared": true
+  },
+  "route_protection": {
+    "/dynamic-dashboard": {
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "leakedData": true
+    },
+    "/datasets": {
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "leakedData": true
+    },
+    "/settings": {
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "leakedData": true
+    },
+    "/reports": {
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "leakedData": true
+    },
+    "/strategy": {
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "leakedData": true
+    },
+    "/cybersecurity": {
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "leakedData": true
+    }
+  }
+}

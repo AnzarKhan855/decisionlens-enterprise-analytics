@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -49,11 +49,16 @@ export default function DynamicChartRenderer({ chart }: { chart: ChartSpec }) {
   const [fullScreen, setFullScreen] = useState(false);
   const [sortAsc, setSortAsc] = useState(false);
   const [activeInsight, setActiveInsight] = useState<InsightDetail | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  if (chart?.loading) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || chart?.loading) {
     return (
       <ChartCard title={chart?.title || "Visualization"} loading>
-        <div />
+        <div className="h-[320px] w-full flex items-center justify-center animate-pulse bg-surface-muted/30 rounded-xl" />
       </ChartCard>
     );
   }

@@ -98,7 +98,7 @@ export default function ChartCard({
   }
 
   return (
-    <div className={`chart-card ${className}`}>
+    <div className={`chart-card ${className}`} role="region" aria-label={`Chart: ${title}`}>
       {header || (
         <div className="chart-card-header">
           <div>

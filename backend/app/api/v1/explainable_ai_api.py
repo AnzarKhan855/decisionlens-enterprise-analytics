@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Query, Body
+from fastapi import APIRouter, Query, Body, Depends
 from typing import Optional, Dict, Any
 from app.ai.universal_copilot_brain import UniversalAIBrain
+from app.core.rbac import get_current_user_from_token
 
-router = APIRouter(prefix="/ai/xai", tags=["Explainable AI (OpenAI Enterprise Spec)"])
+router = APIRouter(
+    prefix="/ai/xai",
+    tags=["Explainable AI (OpenAI Enterprise Spec)"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/insights")

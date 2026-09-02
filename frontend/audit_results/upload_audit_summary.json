@@ -1,0 +1,14 @@
+{
+  "file_type_restriction": {
+    "rejected": false
+  },
+  "empty_file_handling": {
+    "detected": false
+  },
+  "malformed_csv_handling": {},
+  "ui_elements": {
+    "file_input_present": true,
+    "drop_zone_present": true
+  },
+  "valid_file_staged": true
+}

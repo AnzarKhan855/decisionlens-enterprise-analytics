@@ -2,9 +2,22 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import Sidebar from "@/components/layout/Sidebar";
-import Header from "@/components/layout/Header";
+
+const Architecture3DCanvas = dynamic(
+  () => import("@/components/architecture/Architecture3DCanvas"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[600px] w-full flex flex-col items-center justify-center bg-surface border border-border-color rounded-2xl p-8 text-center animate-pulse">
+        <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-sm font-semibold text-text-primary">Loading 3D WebGL Engine...</p>
+        <p className="text-xs text-text-muted mt-1">Initializing Three.js scene and materials</p>
+      </div>
+    ),
+  }
+);
 import {
   Layers,
   Database,
@@ -235,60 +248,99 @@ export default function ArchitecturePage() {
   const [selectedStage, setSelectedStage] = useState<ArchStage | null>(PIPELINE_STAGES[7]);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [viewMode, setViewMode] = useState<"2d" | "3d">("2d");
 
   const filteredStages = PIPELINE_STAGES.filter(
     (s) => filterCategory === "all" || s.category === filterCategory
   );
 
   return (
-    <main className="p-6 lg:p-10 space-y-8 max-w-7xl mx-auto w-full font-sans">
-          {/* Header Banner */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border-color/80">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-400 mb-1">
-                <Layers className="w-4 h-4" />
-                <span>Enterprise Architecture</span>
-              </div>
-              <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
-                14-Stage System Pipeline Map
-              </h1>
-              <p className="text-sm text-text-muted mt-1">
-                End-to-end data flow: User Client → API Gateway → Ingestion → Universal Analytics → Forecasting → AI Copilot → Reports → Storage.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="bg-background border border-border-color rounded-xl p-1 flex items-center gap-1">
-                <button
-                  onClick={() => setZoomLevel((z) => Math.max(80, z - 10))}
-                  className="p-1.5 hover:bg-surface-muted rounded-lg text-text-muted hover:text-text-primary transition"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <span className="text-xs font-mono px-2 text-text-muted font-bold">{zoomLevel}%</span>
-                <button
-                  onClick={() => setZoomLevel((z) => Math.min(120, z + 10))}
-                  className="p-1.5 hover:bg-surface-muted rounded-lg text-text-muted hover:text-text-primary transition"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setZoomLevel(100)}
-                  className="p-1.5 hover:bg-surface-muted rounded-lg text-text-muted hover:text-text-primary transition ml-1"
-                  title="Reset Zoom"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              </div>
-
-              <span className="px-3 py-1.5 bg-success-500/10 text-success-400 border border-success-500/20 text-xs font-semibold rounded-full flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                14 Pipeline Stages Verified
-              </span>
-            </div>
+    <main className="py-6 sm:py-8 space-y-6 max-w-7xl mx-auto w-full font-sans">
+      {/* Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border-color/80">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary-400 mb-1">
+            <Layers className="w-4 h-4" aria-hidden="true" />
+            <span>Enterprise Architecture</span>
           </div>
+          <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
+            {viewMode === "3d" ? "Interactive 3D Layer Model" : "14-Stage System Pipeline Map"}
+          </h1>
+          <p className="text-sm text-text-muted mt-1">
+            {viewMode === "3d"
+              ? "Three.js WebGL spatial topology: Interactive data layer inspection and component hierarchy."
+              : "End-to-end data flow: User Client → API Gateway → Ingestion → Universal Analytics → Forecasting → AI Copilot → Reports → Storage."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="bg-surface-muted border border-border-color rounded-xl p-1 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setViewMode("2d")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "2d" ? "bg-primary-600 text-white shadow-sm" : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              2D Pipeline Map
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("3d")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === "3d" ? "bg-primary-600 text-white shadow-sm" : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              Interactive 3D (WebGL)
+            </button>
+          </div>
+
+          {viewMode === "2d" && (
+            <div className="bg-background border border-border-color rounded-xl p-1 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(80, z - 10))}
+                className="p-1.5 hover:bg-surface-muted rounded-lg text-text-muted hover:text-text-primary transition"
+                title="Zoom Out"
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-mono px-2 text-text-muted font-bold">{zoomLevel}%</span>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(120, z + 10))}
+                className="p-1.5 hover:bg-surface-muted rounded-lg text-text-muted hover:text-text-primary transition"
+                title="Zoom In"
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(100)}
+                className="p-1.5 hover:bg-surface-muted rounded-lg text-text-muted hover:text-text-primary transition ml-1"
+                title="Reset Zoom"
+                aria-label="Reset zoom"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <span className="px-3 py-1.5 bg-success-500/10 text-success-400 border border-success-500/20 text-xs font-semibold rounded-full flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+            14 Pipeline Stages Verified
+          </span>
+        </div>
+      </div>
+
+      {viewMode === "3d" ? (
+        <div className="w-full">
+          <Architecture3DCanvas />
+        </div>
+      ) : (
+        <>
 
           {/* Category Filter Pills */}
           <div className="flex flex-wrap items-center gap-2">
@@ -457,6 +509,8 @@ export default function ArchitecturePage() {
               </div>
             </div>
           </div>
-        </main>
+        </>
+      )}
+    </main>
   );
 }

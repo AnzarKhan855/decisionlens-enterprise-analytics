@@ -361,13 +361,20 @@ export default function WorkspacesPage() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-foreground/10">
-                  <Link
-                    href="/dynamic-dashboard"
+                  <button
+                    onClick={async () => {
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem("decisionlens_active_workspace", ws.workspace_id);
+                        window.dispatchEvent(new CustomEvent("decisionlens:workspace_changed", { detail: { workspace_id: ws.workspace_id } }));
+                      }
+                      await api.post(`/workspaces/${ws.workspace_id}/activate`).catch(() => null);
+                      window.location.href = "/dynamic-dashboard";
+                    }}
                     className="px-3.5 py-2.5 bg-primary-600 hover:bg-primary-500 text-white text-xs font-extrabold rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
                   >
                     <LayoutDashboard className="w-3.5 h-3.5" />
                     <span>Open</span>
-                  </Link>
+                  </button>
                   <Link
                     href={`/explorer?ws=${ws.workspace_id}`}
                     className="px-3.5 py-2.5 bg-surface/10 hover:bg-surface/20 text-text-primary text-xs font-bold rounded-xl transition-all border border-foreground/10 flex items-center justify-center gap-1.5"

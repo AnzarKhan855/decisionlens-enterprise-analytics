@@ -121,7 +121,7 @@ class ChartEngine:
                     SELECT CAST("{d_col}" AS VARCHAR) as cat, SUM({m_esc}) as value
                     FROM read_parquet('{path_str}')
                     WHERE "{d_col}" IS NOT NULL
-                    GROUP BY cat
+                    GROUP BY 1
                     ORDER BY value DESC
                     LIMIT 10
                     """
@@ -173,7 +173,7 @@ class ChartEngine:
                     SELECT CAST("{d_col2}" AS VARCHAR) as cat, COUNT(*) as frequency
                     FROM read_parquet('{path_str}')
                     WHERE "{d_col2}" IS NOT NULL
-                    GROUP BY cat
+                    GROUP BY 1
                     ORDER BY frequency DESC
                     LIMIT 8
                     """
@@ -226,7 +226,7 @@ class ChartEngine:
                     SELECT CAST("{d_col}" AS VARCHAR) as cat, SUM("{sec_measure}") as value
                     FROM read_parquet('{path_str}')
                     WHERE "{d_col}" IS NOT NULL
-                    GROUP BY cat
+                    GROUP BY 1
                     ORDER BY value DESC
                     LIMIT 8
                     """
@@ -278,7 +278,7 @@ class ChartEngine:
                     SELECT CAST("{target_status}" AS VARCHAR) as cat, SUM({m_esc}) as value
                     FROM read_parquet('{path_str}')
                     WHERE "{target_status}" IS NOT NULL
-                    GROUP BY cat
+                    GROUP BY 1
                     ORDER BY value DESC
                     LIMIT 6
                     """

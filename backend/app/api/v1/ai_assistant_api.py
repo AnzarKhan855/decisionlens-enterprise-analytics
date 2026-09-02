@@ -1,15 +1,16 @@
 from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException
-
+from fastapi import APIRouter, HTTPException, Depends
+from app.core.rbac import get_current_user_from_token
 from app.database.connection import SessionLocal
 from app.database.crud import get_all_datasets
 from app.database.storage import ParquetStorageManager
 from app.ai.universal_copilot_brain import UniversalAIBrain
 
 router = APIRouter(
-    tags=["AI Analyst Assistant"]
+    tags=["AI Analyst Assistant"],
+    dependencies=[Depends(get_current_user_from_token)]
 )
 
 

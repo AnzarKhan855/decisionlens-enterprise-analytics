@@ -13,6 +13,7 @@ import {
   type DatasetOption,
 } from "@/lib/copilot";
 import { getMetricDisplayValue } from "@/lib/types";
+import api from "@/lib/api";
 import {
   Bot,
   Send,
@@ -275,11 +276,18 @@ export default function AICopilotPage() {
       const wsList = await listWorkspaces();
       setWorkspaces(wsList);
       const storedWs = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
-      const activeWs = storedWs || wsList.find((w) => w.is_active)?.workspace_id || wsList[0]?.workspace_id || "";
+      const activeWs = (storedWs && wsList.some((w) => w.workspace_id === storedWs) ? storedWs : null) || wsList.find((w) => w.is_active)?.workspace_id || (wsList.length > 0 ? wsList[0].workspace_id : "");
       setSelectedWorkspaceId(activeWs);
       const dsList = await listDatasets();
       setDatasets(dsList);
     })();
+
+    const handleWsChange = (e: any) => {
+      const newWs = e?.detail?.workspace_id || (typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null);
+      if (newWs) setSelectedWorkspaceId(newWs);
+    };
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   useEffect(() => {
@@ -517,7 +525,15 @@ export default function AICopilotPage() {
               <Building2 className="w-3.5 h-3.5 text-text-muted" />
               <select
                 value={selectedWorkspaceId}
-                onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+                onChange={async (e) => {
+                  const val = e.target.value;
+                  setSelectedWorkspaceId(val);
+                  if (val && typeof window !== "undefined") {
+                    localStorage.setItem("decisionlens_active_workspace", val);
+                    window.dispatchEvent(new CustomEvent("decisionlens:workspace_changed", { detail: { workspace_id: val } }));
+                    await api.post(`/workspaces/${val}/activate`).catch(() => null);
+                  }
+                }}
                 className="text-xs font-semibold text-text-secondary bg-surface-muted border border-border-color rounded-lg px-2 py-1.5 outline-none focus:border-primary-600"
                 aria-label="Select workspace"
               >

@@ -91,6 +91,11 @@ class UniversalAnalyticsEngine:
                     semantic_model.workspace_id or dataset_id or workspace_id or ""
                 )
                 if cached_intelligence is not None:
+                    c_path = getattr(cached_intelligence, "parquet_path", None)
+                    if c_path and path and str(Path(c_path).resolve()) != str(path.resolve()):
+                        cached_intelligence = None
+
+                if cached_intelligence is not None:
                     profile = {
                         "total_rows": cached_intelligence.profile.total_records,
                         "total_columns": cached_intelligence.profile.total_columns,
@@ -676,15 +681,22 @@ class UniversalAnalyticsEngine:
         stage = "distributions_computation"
         try:
             for dim in dimensions[:3]:
-                items: List[DistributionItem] = []
-                rows = SemanticAnalyticsEngine.get_dimension_breakdown(path, dim, measures[0] if measures else None, top_n=10)
-                total = sum(r.get("value", 0) for r in rows) if rows else 0
-                for r in rows:
-                    cat = str(r.get("category") or r.get("label") or r.get("cat") or "Unknown")
-                    val = float(r.get("value", 0))
-                    pct = (val / total * 100) if total > 0 else 0.0
-                    items.append(DistributionItem(category=cat, value=val, percentage=round(pct, 2)))
-                distributions[dim] = items
+                try:
+                    items: List[DistributionItem] = []
+                    rows = SemanticAnalyticsEngine.get_dimension_breakdown(path, dim, measures[0] if measures else None, top_n=10)
+                    total = sum(float(r.get("value", 0) or 0) for r in rows) if rows else 0.0
+                    for r in rows:
+                        cat_raw = r.get("category")
+                        if cat_raw is None:
+                            cat_raw = r.get("label") or r.get("cat") or r.get(dim) or "Unknown"
+                        cat = str(cat_raw)
+                        val = float(r.get("value", 0) or 0)
+                        pct = (val / total * 100) if total > 0 else 0.0
+                        items.append(DistributionItem(category=cat, value=val, percentage=round(pct, 2)))
+                    distributions[dim] = items
+                except Exception as dim_err:
+                    logger.warning("[Analytics] Distribution computation warning for dim '%s': %s", dim, dim_err)
+                    distributions[dim] = []
         except Exception as e:
             logger.error(f"{stage} failed: {str(e)}")
         return distributions
@@ -774,15 +786,22 @@ class UniversalAnalyticsEngine:
         rankings: Dict[str, List[RankItem]] = {}
         try:
             for dim in dimensions[:2]:
-                items: List[RankItem] = []
-                rows = SemanticAnalyticsEngine.get_dimension_breakdown(path, dim, measures[0] if measures else None, top_n=10)
-                total = sum(r.get("value", 0) for r in rows) if rows else 0
-                for idx, r in enumerate(rows, 1):
-                    cat = str(r.get("category") or r.get("label") or r.get("cat") or "Unknown")
-                    val = float(r.get("value", 0))
-                    pct = (val / total * 100) if total > 0 else 0.0
-                    items.append(RankItem(rank=idx, category=cat, value=val, percentage=round(pct, 2)))
-                rankings[dim] = items
+                try:
+                    items: List[RankItem] = []
+                    rows = SemanticAnalyticsEngine.get_dimension_breakdown(path, dim, measures[0] if measures else None, top_n=10)
+                    total = sum(float(r.get("value", 0) or 0) for r in rows) if rows else 0.0
+                    for idx, r in enumerate(rows, 1):
+                        cat_raw = r.get("category")
+                        if cat_raw is None:
+                            cat_raw = r.get("label") or r.get("cat") or r.get(dim) or "Unknown"
+                        cat = str(cat_raw)
+                        val = float(r.get("value", 0) or 0)
+                        pct = (val / total * 100) if total > 0 else 0.0
+                        items.append(RankItem(rank=idx, category=cat, value=val, percentage=round(pct, 2)))
+                    rankings[dim] = items
+                except Exception as dim_err:
+                    logger.warning("[Analytics] Rankings computation warning for dim '%s': %s", dim, dim_err)
+                    rankings[dim] = []
         except Exception as e:
             logger.error(f"{stage} failed: {str(e)}")
         return rankings
@@ -1234,6 +1253,14 @@ class UniversalAnalyticsEngine:
         measures: List[str],
         domain: str,
     ) -> Dict[str, Any]:
+        column_detection_succeeded = bool(temporal and measures)
+        feasible_preds = [p for p in predictions if getattr(p, "feasible", False)]
+        forecasting_possible = bool(feasible_preds)
+
+        forecasting_status = "available" if forecasting_possible else (
+            "skipped_insufficient_observations" if column_detection_succeeded else "skipped_no_temporal"
+        )
+
         summary: Dict[str, Any] = {
             "outlook": "Stable",
             "expected_change_pct": 0.0,
@@ -1243,18 +1270,23 @@ class UniversalAnalyticsEngine:
             "primary_metric": measures[0] if measures else "",
             "has_temporal_data": bool(temporal),
             "forecast_models_count": len(predictions),
-            "feasible_forecasts_count": sum(1 for p in predictions if getattr(p, "feasible", False)),
+            "feasible_forecasts_count": len(feasible_preds),
+            "column_detection_succeeded": column_detection_succeeded,
+            "forecasting_possible": forecasting_possible,
+            "forecasting_status": forecasting_status,
+            "detected_time_column": temporal[0] if temporal else None,
+            "detected_measures": measures,
         }
 
         if not predictions:
             summary["management_action"] = "Upload a dataset with temporal and numeric columns to enable forecasting."
             return summary
 
-        feasible_preds = [p for p in predictions if getattr(p, "feasible", False)]
         if not feasible_preds:
             summary["outlook"] = "Unknown"
             summary["risk"] = "Medium"
-            summary["management_action"] = predictions[0].limitation or "Insufficient data for reliable forecasting."
+            lim = getattr(predictions[0], "limitation", None) if predictions else None
+            summary["management_action"] = lim or "Insufficient data for reliable forecasting."
             return summary
 
         primary = feasible_preds[0]

@@ -420,13 +420,17 @@ export default function StrategyPage() {
 
   useEffect(() => {
     loadStrategy();
+    const handleWsChange = () => loadStrategy();
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   async function loadStrategy() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get("/strategy");
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+      const res = await api.get("/strategy", { params: storedId ? { workspace_id: storedId } : {} });
       if (res.data) {
         setStrategy(res.data as StrategyReport);
         setLastGenerated(res.data.generated_at || new Date().toISOString());

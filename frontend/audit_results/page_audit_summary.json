@@ -1,0 +1,5535 @@
+[
+  {
+    "route": "/",
+    "name": "landing_or_home",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 347,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 142,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 123,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 5914,
+        "hasNaN": false,
+        "hasUndefined": true,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 50,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Executive Walkthrough",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-5 py-3 bg-surface/10 hover:bg-surface"
+          },
+          {
+            "text": "Explain",
+            "ariaLabel": "Explain Revenue metric",
+            "disabled": false,
+            "classes": "p-1 bg-surface-muted hover:bg-border-col"
+          },
+          {
+            "text": "Explain",
+            "ariaLabel": "Explain Quantity metric",
+            "disabled": false,
+            "classes": "p-1 bg-surface-muted hover:bg-border-col"
+          },
+          {
+            "text": "Bar",
+            "ariaLabel": "Bar chart",
+            "disabled": false,
+            "classes": "px-2 py-1 rounded-lg transition-all flex"
+          },
+          {
+            "text": "Area",
+            "ariaLabel": "Area chart",
+            "disabled": false,
+            "classes": "px-2 py-1 rounded-lg transition-all flex"
+          },
+          {
+            "text": "Line",
+            "ariaLabel": "Line chart",
+            "disabled": false,
+            "classes": "px-2 py-1 rounded-lg transition-all flex"
+          }
+        ],
+        "totalLinks": 22,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 5,
+        "inputsMissingLabels": 4,
+        "svgCount": 111,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 17,
+        "h3Count": 6,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "landing_or_home_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/login",
+    "name": "login",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 273,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkFailures": []
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 149,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 56,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 269,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 5,
+        "buttonSummary": [
+          {
+            "text": "Super Admin",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                    py-2 px-2 text-[11p"
+          },
+          {
+            "text": "Org Admin",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                    py-2 px-2 text-[11p"
+          },
+          {
+            "text": "Employee",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                    py-2 px-2 text-[11p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Show password",
+            "disabled": false,
+            "classes": "absolute right-3.5 top-3 text-text-muted"
+          },
+          {
+            "text": "Sign In & Request OTP",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full py-3 bg-primary-600 hover:bg-prim"
+          }
+        ],
+        "totalLinks": 3,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Forgot password?",
+            "href": "/forgot-password"
+          },
+          {
+            "text": "Request Workspace Access",
+            "href": "/register"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 0,
+        "svgCount": 6,
+        "canvasCount": 0,
+        "h1Count": 1,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "login_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/register",
+    "name": "register",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/register",
+      "redirectedToLogin": false,
+      "loadTimeMs": 362,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkFailures": []
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 113,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 56,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 163,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 1,
+        "buttonSummary": [
+          {
+            "text": "Continue",
+            "ariaLabel": null,
+            "disabled": true,
+            "classes": "w-full py-3 bg-primary-600 hover:bg-prim"
+          }
+        ],
+        "totalLinks": 2,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Sign In",
+            "href": "/login"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 0,
+        "svgCount": 3,
+        "canvasCount": 0,
+        "h1Count": 1,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "register_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/forgot-password",
+    "name": "forgot_password",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/forgot-password",
+      "redirectedToLogin": false,
+      "loadTimeMs": 298,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkFailures": []
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 175,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 56,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 129,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 1,
+        "buttonSummary": [
+          {
+            "text": "Send Reset Link",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full py-3 bg-primary-600 hover:bg-prim"
+          }
+        ],
+        "totalLinks": 2,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Back to Login",
+            "href": "/login"
+          }
+        ],
+        "totalInputs": 1,
+        "inputsMissingLabels": 0,
+        "svgCount": 3,
+        "canvasCount": 0,
+        "h1Count": 1,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "forgot_password_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/reset-password",
+    "name": "reset_password",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/reset-password",
+      "redirectedToLogin": false,
+      "loadTimeMs": 299,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkFailures": []
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 125,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 56,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 155,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 2,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Show password",
+            "disabled": false,
+            "classes": "absolute right-3.5 top-3 text-text-muted"
+          },
+          {
+            "text": "Update Password",
+            "ariaLabel": null,
+            "disabled": true,
+            "classes": "w-full py-3 bg-primary-600 hover:bg-prim"
+          }
+        ],
+        "totalLinks": 1,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 0,
+        "svgCount": 6,
+        "canvasCount": 0,
+        "h1Count": 1,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "reset_password_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/verify-otp",
+    "name": "verify_otp",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/verify-otp",
+      "redirectedToLogin": false,
+      "loadTimeMs": 287,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkFailures": []
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 120,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 56,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 203,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 2,
+        "buttonSummary": [
+          {
+            "text": "Verify & Complete Sign In",
+            "ariaLabel": null,
+            "disabled": true,
+            "classes": "w-full py-3 bg-primary-600 hover:bg-prim"
+          },
+          {
+            "text": "Resend Code in 58s",
+            "ariaLabel": null,
+            "disabled": true,
+            "classes": "text-primary-400 hover:underline disable"
+          }
+        ],
+        "totalLinks": 2,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Back to Login",
+            "href": "/login"
+          }
+        ],
+        "totalInputs": 1,
+        "inputsMissingLabels": 0,
+        "svgCount": 4,
+        "canvasCount": 0,
+        "h1Count": 1,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "verify_otp_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/dynamic-dashboard",
+    "name": "dynamic_dashboard",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 266,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 194,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 91,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 5914,
+        "hasNaN": false,
+        "hasUndefined": true,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 50,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Executive Walkthrough",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-5 py-3 bg-surface/10 hover:bg-surface"
+          },
+          {
+            "text": "Explain",
+            "ariaLabel": "Explain Revenue metric",
+            "disabled": false,
+            "classes": "p-1 bg-surface-muted hover:bg-border-col"
+          },
+          {
+            "text": "Explain",
+            "ariaLabel": "Explain Quantity metric",
+            "disabled": false,
+            "classes": "p-1 bg-surface-muted hover:bg-border-col"
+          },
+          {
+            "text": "Bar",
+            "ariaLabel": "Bar chart",
+            "disabled": false,
+            "classes": "px-2 py-1 rounded-lg transition-all flex"
+          },
+          {
+            "text": "Area",
+            "ariaLabel": "Area chart",
+            "disabled": false,
+            "classes": "px-2 py-1 rounded-lg transition-all flex"
+          },
+          {
+            "text": "Line",
+            "ariaLabel": "Line chart",
+            "disabled": false,
+            "classes": "px-2 py-1 rounded-lg transition-all flex"
+          }
+        ],
+        "totalLinks": 22,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 5,
+        "inputsMissingLabels": 4,
+        "svgCount": 111,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 17,
+        "h3Count": 6,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "dynamic_dashboard_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/forecasts",
+    "name": "forecasts",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 456,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        },
+        {
+          "url": "http://127.0.0.1:8000/api/v1/analytics/universal",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 243,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 70,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 2805,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 14,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "20 DAYS",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 font-bold rounded-lg transit"
+          },
+          {
+            "text": "30 DAYS",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 font-bold rounded-lg transit"
+          },
+          {
+            "text": "90 DAYS",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 font-bold rounded-lg transit"
+          },
+          {
+            "text": "180 DAYS",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 font-bold rounded-lg transit"
+          },
+          {
+            "text": "Refresh Forecast",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2 bg-background hover:bg-surface"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 6,
+        "inputsMissingLabels": 5,
+        "svgCount": 49,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 1,
+        "h3Count": 3,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "forecasts_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/scenario",
+    "name": "scenario",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 346,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+        "Failed to fetch scenario levers: AxiosError: Session expired. Please sign in again.\n    at settle (http://localhost:3000/_next/static/chunks/node_modules_1ccor2j._.js:4075:16)\n    at XMLHttpRequest.onloadend (http://localhost:3000/_next/static/chunks/node_modules_1ccor2j._.js:4709:174)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/analytics/scenario/levers",
+          "status": 401
+        },
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 152,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 62,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1197,
+        "hasNaN": false,
+        "hasUndefined": true,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 13,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Reverse / Reset Scenario",
+            "ariaLabel": null,
+            "disabled": true,
+            "classes": "px-4 py-3 bg-surface hover:bg-surface-mu"
+          },
+          {
+            "text": "Run Predictive Simulation",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-6 py-3 bg-primary-600 hover:bg-primar"
+          },
+          {
+            "text": "Adjust Revenue",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 bg-surface-muted hover:bg-pr"
+          },
+          {
+            "text": "Combined Revenue & Quantity",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 bg-surface-muted hover:bg-pr"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 4,
+        "inputsMissingLabels": 3,
+        "svgCount": 34,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "scenario_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/strategy",
+    "name": "strategy",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 371,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 192,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 62,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 3413,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 10,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Refresh Strategy",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2 bg-background hover:bg-surface"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 74,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 1,
+        "h3Count": 10,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "strategy_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/copilot",
+    "name": "copilot",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 378,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Uncaught: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:\n\n- A server/client branch `if (typeof window !== 'undefined')`.\n- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.\n- Date formatting in a user's locale which doesn't match the server.\n- External changing data without sending a snapshot of it along with the HTML.\n- Invalid HTML tag nesting.\n\nIt can also happen if the client has a browser extension installed which messes with the HTML before React loaded.\n\nhttps://react.dev/link/hydration-mismatch\n\n  ...\n    <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>\n      <RedirectBoundary>\n        <RedirectErrorBoundary router={{...}}>\n          <InnerLayoutRouter url=\"/copilot\" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>\n            <SegmentViewNode type=\"page\" pagePath=\"copilot/pa...\">\n              <SegmentTrieNode>\n              <ClientPageRoot Component={function AICopilotPage} serverProvidedParams={{...}}>\n                <AICopilotPage params={Promise} searchParams={Promise}>\n                  <div className=\"flex h-[ca...\">\n                    <motion.div animate={{width:256}} transition={{duration:0.3}} className=\"hidden lg:...\">\n                      <div className=\"hidden lg:...\" style={{}} ref={function useMotionRef.useCallback}>\n                        <div>\n                        <div>\n                        <div className=\"flex-1 ove...\">\n                          <div className=\"p-2.5 roun...\">\n                            <div>\n                            <span className=\"text-[10px] text-text-muted mt-0.5 block\">\n+                             13:47\n-                             01:47 pm\n                    ...\n            ...\n          ...\n",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        },
+        {
+          "url": "http://127.0.0.1:8000/api/v1/datasets",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 214,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 64,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 3640,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 26,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "text-text-muted hover:text-text-secondar"
+          },
+          {
+            "text": "New Session",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full px-3 py-2 bg-primary-600 text-whi"
+          },
+          {
+            "text": "Evidence",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 text-xs font-semibold rounde"
+          },
+          {
+            "text": "Export",
+            "ariaLabel": null,
+            "disabled": true,
+            "classes": "px-3 py-1.5 text-xs font-semibold rounde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Pin response",
+            "disabled": false,
+            "classes": "p-1 rounded-lg transition-colors text-te"
+          },
+          {
+            "text": "Evidence & Citations",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2 px-3 py-2"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 5,
+        "inputsMissingLabels": 4,
+        "svgCount": 45,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "copilot_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/datasets",
+    "name": "datasets",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 517,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 167,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 69,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 778,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 10,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Delete",
+            "ariaLabel": "Delete Test Orlys Enterprise workspace",
+            "disabled": false,
+            "classes": "px-3.5 py-2.5 bg-error-500/20 hover:bg-e"
+          }
+        ],
+        "totalLinks": 22,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 3,
+        "inputsMissingLabels": 2,
+        "svgCount": 41,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 1,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "datasets_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/upload",
+    "name": "upload",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 349,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 208,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1542,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 13,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "ZIP Archive (.zip)",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3.5 py-1.5 rounded-lg text-xs font-bo"
+          },
+          {
+            "text": "Project Folder",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3.5 py-1.5 rounded-lg text-xs font-bo"
+          },
+          {
+            "text": "Drag & Drop Upload",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex-1 py-2 px-3 rounded-lg transition-a"
+          },
+          {
+            "text": "Device Folder Browser",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex-1 py-2 px-3 rounded-lg transition-a"
+          }
+        ],
+        "totalLinks": 20,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 5,
+        "inputsMissingLabels": 4,
+        "svgCount": 41,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 2,
+        "h3Count": 6,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "upload_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/explorer",
+    "name": "explorer",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 346,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 146,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 62,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1161,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 10,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Sales Data\n3 rows • 4 cols\nDIM",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full p-4 rounded-2xl text-left transit"
+          }
+        ],
+        "totalLinks": 20,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 3,
+        "inputsMissingLabels": 2,
+        "svgCount": 36,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 1,
+        "h3Count": 1,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "explorer_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/data-quality",
+    "name": "data_quality",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 314,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 182,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 60,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1285,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 9,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 35,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 1,
+        "h3Count": 4,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "data_quality_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/lineage",
+    "name": "lineage",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 294,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 130,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 60,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1633,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 9,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 38,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 7,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "lineage_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/catalog",
+    "name": "catalog",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 302,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 147,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 62,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 807,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 15,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Refresh",
+            "ariaLabel": "Refresh catalog data",
+            "disabled": false,
+            "classes": "px-4 py-2 bg-background hover:bg-surface"
+          },
+          {
+            "text": "Tables",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2 rounded-lg text-xs font-semibo"
+          },
+          {
+            "text": "Glossary",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2 rounded-lg text-xs font-semibo"
+          },
+          {
+            "text": "Show Columns",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "text-xs font-semibold px-3 py-2.5 rounde"
+          },
+          {
+            "text": "Show Columns",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "text-[10px] font-semibold text-primary-6"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Dismiss notification",
+            "disabled": false,
+            "classes": "text-text-muted hover:text-text-secondar"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 4,
+        "inputsMissingLabels": 3,
+        "svgCount": 40,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 1,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "catalog_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/investigate",
+    "name": "investigate",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 1175,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 157,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 813,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 9,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 30,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 1,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "investigate_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/decisions",
+    "name": "decisions",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 1129,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 146,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 63,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 586,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 9,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          }
+        ],
+        "totalLinks": 19,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 31,
+        "canvasCount": 0,
+        "h1Count": 1,
+        "h2Count": 1,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "decisions_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/impact",
+    "name": "impact",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 615,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 169,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 597,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 9,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          }
+        ],
+        "totalLinks": 19,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 31,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "impact_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/diagnostics",
+    "name": "diagnostics",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 728,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 150,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1184,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 10,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Refresh Health Status",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-5 py-3 bg-primary-600 hover:bg-primar"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 36,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 1,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "diagnostics_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/cybersecurity",
+    "name": "cybersecurity",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 377,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 177,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 627,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 9,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 30,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "cybersecurity_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/audit",
+    "name": "audit",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 752,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        },
+        {
+          "url": "http://127.0.0.1:8000/api/v1/audit/logs?limit=100",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 149,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 7442,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 11,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Export CSV",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2 bg-surface hover:bg-surface-mu"
+          },
+          {
+            "text": "Refresh",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2 bg-background hover:bg-surface"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 5,
+        "inputsMissingLabels": 4,
+        "svgCount": 235,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "audit_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/reports",
+    "name": "reports",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 399,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        },
+        {
+          "url": "http://127.0.0.1:8000/api/v1/reports",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 165,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 63,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 2352,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 28,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Print / PDF",
+            "ariaLabel": "Print or download report as PDF",
+            "disabled": false,
+            "classes": "px-5 py-2.5 bg-background hover:bg-surfa"
+          },
+          {
+            "text": "Refresh",
+            "ariaLabel": "Refresh report data",
+            "disabled": false,
+            "classes": "px-4 py-2.5 bg-surface hover:bg-surface-"
+          },
+          {
+            "text": "",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "text-text-muted hover:text-text-secondar"
+          },
+          {
+            "text": "Last 7 days",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full text-left px-3 py-2 rounded-xl te"
+          },
+          {
+            "text": "Last 30 days",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full text-left px-3 py-2 rounded-xl te"
+          },
+          {
+            "text": "Last 90 days",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full text-left px-3 py-2 rounded-xl te"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 5,
+        "inputsMissingLabels": 4,
+        "svgCount": 53,
+        "canvasCount": 0,
+        "h1Count": 3,
+        "h2Count": 5,
+        "h3Count": 1,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "reports_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/search",
+    "name": "search",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 1272,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 145,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 521,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 16,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "All",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center gap-1.5 px-4 py-2 roun"
+          },
+          {
+            "text": "Reports",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center gap-1.5 px-4 py-2 roun"
+          },
+          {
+            "text": "Workspaces",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center gap-1.5 px-4 py-2 roun"
+          },
+          {
+            "text": "Datasets",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center gap-1.5 px-4 py-2 roun"
+          },
+          {
+            "text": "Conversations",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center gap-1.5 px-4 py-2 roun"
+          },
+          {
+            "text": "Forecasts",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center gap-1.5 px-4 py-2 roun"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 3,
+        "inputsMissingLabels": 2,
+        "svgCount": 38,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "search_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/settings",
+    "name": "settings",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 315,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 142,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 686,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 17,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Save Changes",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n        inline-flex items-center justif"
+          },
+          {
+            "text": "Profile",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                flex items-center gap-2"
+          },
+          {
+            "text": "Security",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                flex items-center gap-2"
+          },
+          {
+            "text": "API Keys",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                flex items-center gap-2"
+          },
+          {
+            "text": "Notifications",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                flex items-center gap-2"
+          },
+          {
+            "text": "Theme",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "\n                flex items-center gap-2"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 6,
+        "inputsMissingLabels": 1,
+        "svgCount": 38,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 1,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "settings_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/profile",
+    "name": "profile",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 821,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        },
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 136,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 63,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 971,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 11,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Refresh",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-3 bg-surface/10 hover:bg-surface"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-5 py-3 bg-error-600 hover:bg-error-50"
+          }
+        ],
+        "totalLinks": 20,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 38,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 0,
+        "h3Count": 0,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "profile_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/help",
+    "name": "help",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 902,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 188,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1923,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 14,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "What is a Business Workspace?",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full p-4 bg-surface-muted hover:bg-sur"
+          },
+          {
+            "text": "How does AI analyze my data?",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full p-4 bg-surface-muted hover:bg-sur"
+          },
+          {
+            "text": "How are charts selected?",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full p-4 bg-surface-muted hover:bg-sur"
+          },
+          {
+            "text": "How does forecasting work?",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full p-4 bg-surface-muted hover:bg-sur"
+          },
+          {
+            "text": "How should I use strategic rec",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "w-full p-4 bg-surface-muted hover:bg-sur"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 3,
+        "inputsMissingLabels": 2,
+        "svgCount": 42,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 3,
+        "h3Count": 3,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "help_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/architecture",
+    "name": "architecture",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 910,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 193,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 61,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 3711,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 20,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "p-1.5 hover:bg-surface-muted rounded-lg "
+          },
+          {
+            "text": "",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "p-1.5 hover:bg-surface-muted rounded-lg "
+          },
+          {
+            "text": "",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "p-1.5 hover:bg-surface-muted rounded-lg "
+          },
+          {
+            "text": "All 14 Stages",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 text-xs font-semibold rounde"
+          },
+          {
+            "text": "Client & UI",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 text-xs font-semibold rounde"
+          },
+          {
+            "text": "Gateway & Auth",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-3 py-1.5 text-xs font-semibold rounde"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 68,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 2,
+        "h3Count": 15,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "architecture_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  },
+  {
+    "route": "/workspace-structure",
+    "name": "workspace_structure",
+    "unauthenticated": {
+      "statusCode": 200,
+      "finalUrl": "http://localhost:3000/login",
+      "redirectedToLogin": true,
+      "loadTimeMs": 791,
+      "title": "DecisionLens | Enterprise Decision Intelligence",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ],
+      "consoleWarns": [],
+      "networkFailures": [
+        {
+          "url": "http://127.0.0.1:8000/api/v1/auth/me",
+          "status": 401
+        }
+      ]
+    },
+    "authenticated": {
+      "statusCode": 200,
+      "loadTimeMs": 165,
+      "consoleErrors": [],
+      "consoleWarns": [],
+      "networkRequestsCount": 63,
+      "networkFailures": [],
+      "inspection": {
+        "bodyTextLength": 1331,
+        "hasNaN": false,
+        "hasUndefined": false,
+        "hasNull": false,
+        "hasObjectObject": false,
+        "hasTODO": false,
+        "hasHorizontalScroll": false,
+        "totalButtons": 10,
+        "buttonSummary": [
+          {
+            "text": "",
+            "ariaLabel": "Collapse sidebar",
+            "disabled": false,
+            "classes": "\n            p-1.5 hover:bg-surface-mute"
+          },
+          {
+            "text": "ADMINISTRATION",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "flex items-center justify-between w-full"
+          },
+          {
+            "text": "Sign Out",
+            "ariaLabel": "Sign out",
+            "disabled": false,
+            "classes": "w-full flex items-center gap-2.5 px-3 py"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Toggle navigation menu",
+            "disabled": false,
+            "classes": "p-2 hover:bg-surface-muted rounded-lg te"
+          },
+          {
+            "text": "Search...\nK",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "hidden sm:flex items-center gap-2 h-9 px"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Open global search",
+            "disabled": false,
+            "classes": "sm:hidden h-9 w-9 rounded-lg border bord"
+          },
+          {
+            "text": "Search business (e.g. Profit, ",
+            "ariaLabel": "Open search",
+            "disabled": false,
+            "classes": "hidden md:flex items-center gap-2 px-4 p"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Notifications",
+            "disabled": false,
+            "classes": "relative h-9 w-9 rounded-lg border borde"
+          },
+          {
+            "text": "",
+            "ariaLabel": "Switch to dark mode",
+            "disabled": false,
+            "classes": "h-9 w-9 rounded-lg border border-border-"
+          },
+          {
+            "text": "Refresh",
+            "ariaLabel": null,
+            "disabled": false,
+            "classes": "px-4 py-2.5 bg-surface/10 hover:bg-surfa"
+          }
+        ],
+        "totalLinks": 18,
+        "linkSummary": [
+          {
+            "text": "",
+            "href": "#main-content"
+          },
+          {
+            "text": "Dashboard",
+            "href": "/"
+          },
+          {
+            "text": "Workspaces",
+            "href": "/datasets"
+          },
+          {
+            "text": "Upload",
+            "href": "/upload"
+          },
+          {
+            "text": "Copilot",
+            "href": "/copilot"
+          },
+          {
+            "text": "Forecasts",
+            "href": "/forecasts"
+          },
+          {
+            "text": "Strategy",
+            "href": "/strategy"
+          },
+          {
+            "text": "Scenario",
+            "href": "/scenario"
+          },
+          {
+            "text": "3D Architecture",
+            "href": "/architecture"
+          },
+          {
+            "text": "Search",
+            "href": "/search"
+          },
+          {
+            "text": "Reports",
+            "href": "/reports"
+          },
+          {
+            "text": "Settings",
+            "href": "/settings"
+          },
+          {
+            "text": "Data Catalog",
+            "href": "/catalog"
+          },
+          {
+            "text": "Lineage",
+            "href": "/lineage"
+          },
+          {
+            "text": "Quality",
+            "href": "/data-quality"
+          }
+        ],
+        "totalInputs": 2,
+        "inputsMissingLabels": 1,
+        "svgCount": 38,
+        "canvasCount": 0,
+        "h1Count": 2,
+        "h2Count": 5,
+        "h3Count": 1,
+        "imagesMissingAlt": 0
+      },
+      "screenshot": "workspace_structure_desktop.png"
+    },
+    "responsiveness": {
+      "tablet": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "hasHorizontalOverflow": false
+      },
+      "mobile": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "hasHorizontalOverflow": false
+      },
+      "ultrawide": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "hasHorizontalOverflow": false
+      }
+    },
+    "issues": []
+  }
+]

@@ -82,14 +82,14 @@ class SemanticAnalyticsEngine:
         WHERE {t_esc} IS NOT NULL 
           AND TRIM(CAST({t_esc} AS VARCHAR)) != '' 
           AND LOWER(TRIM(CAST({t_esc} AS VARCHAR))) NOT IN ('none', 'null', 'nan', 'nat')
-        GROUP BY CAST({t_esc} AS VARCHAR)
+        GROUP BY 1
         ORDER BY period ASC
         """
         try:
             res = DuckDBEngine.query(sql)
             rows = [
                 {
-                    "period": str(r.get("period", "")),
+                    "period": str(r.get("period") or r.get(temporal_col) or ""),
                     "value": round(float(r.get("value", 0) or 0), 2),
                 }
                 for r in res
@@ -124,9 +124,21 @@ class SemanticAnalyticsEngine:
             {val_expr} as value
         FROM read_parquet('{path_str}')
         WHERE {d_esc} IS NOT NULL
-        GROUP BY category
+        GROUP BY 1
         ORDER BY value DESC
         LIMIT {top_n}
         """
-        res = DuckDBEngine.query(sql)
-        return [{"category": str(r["category"]), "value": round(float(r["value"]), 2) if r.get("value") is not None else 0} for r in res]
+        try:
+            res = DuckDBEngine.query(sql)
+            out = []
+            for r in res:
+                cat_val = r.get("category")
+                if cat_val is None:
+                    cat_val = r.get("cat") or r.get(dimension_col) or "Unknown"
+                val_num = r.get("value")
+                val_float = round(float(val_num), 2) if val_num is not None else 0.0
+                out.append({"category": str(cat_val), "value": val_float})
+            return out
+        except Exception as exc:
+            logger.error("[Analytics] Dimension breakdown query failed for %s (measure=%s): %s", dimension_col, measure_col, exc)
+            return []

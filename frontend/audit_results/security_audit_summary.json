@@ -1,0 +1,63 @@
+{
+  "headers": {
+    "hsts": "MISSING",
+    "x_frame_options": "MISSING",
+    "x_content_type_options": "MISSING",
+    "csp": "MISSING",
+    "referrer_policy": "MISSING"
+  },
+  "idor": {
+    "status": 404,
+    "blocked": true
+  },
+  "sql_injection": {
+    "tests": [
+      {
+        "payload": "' OR '1'='1",
+        "status": 404,
+        "leaksSqlTrace": false,
+        "detail": "{\"success\":false,\"error\":\"WORKSPACE_NOT_FOUND\",\"message\":\"Workspace '' OR '1'='1' does not exist.\",\""
+      },
+      {
+        "payload": "'; DROP TABLE users; --",
+        "status": 404,
+        "leaksSqlTrace": false,
+        "detail": "{\"success\":false,\"error\":\"WORKSPACE_NOT_FOUND\",\"message\":\"Workspace ''; DROP TABLE users; --' does n"
+      },
+      {
+        "payload": "1 UNION SELECT null, email, hashed_password FROM users --",
+        "status": 404,
+        "leaksSqlTrace": false,
+        "detail": "{\"success\":false,\"error\":\"WORKSPACE_NOT_FOUND\",\"message\":\"Workspace '1 UNION SELECT null, email, has"
+      }
+    ]
+  },
+  "auth_bypass": {
+    "endpoints": {
+      "http://127.0.0.1:8000/api/v1/cybersecurity/audit-logs": {
+        "status": 404,
+        "vulnerable": false
+      },
+      "http://127.0.0.1:8000/api/v1/audit/events": {
+        "status": 404,
+        "vulnerable": false
+      },
+      "http://127.0.0.1:8000/api/v1/strategy/recommendations": {
+        "status": 401,
+        "vulnerable": false
+      },
+      "http://127.0.0.1:8000/api/v1/business-memory": {
+        "status": 404,
+        "vulnerable": false
+      },
+      "http://127.0.0.1:8000/api/v1/diagnostics/system": {
+        "status": 404,
+        "vulnerable": false
+      }
+    }
+  },
+  "cors": {
+    "preflight_status": 400
+  },
+  "sensitive_data_exposure": {}
+}

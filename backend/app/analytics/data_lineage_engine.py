@@ -15,11 +15,15 @@ class DataLineageEngine:
 
     @classmethod
     def generate_lineage_graph(cls, workspace_id: Optional[str] = None) -> Dict[str, Any]:
-        target_ws = workspace_id or EnterpriseWorkspaceManager.get_active_workspace_id() or "ws-enterprise-generic"
+        target_ws = workspace_id or EnterpriseWorkspaceManager.get_active_workspace_id()
+        if not target_ws:
+            return {"nodes": [], "edges": [], "summary": {"total_nodes": 0, "total_edges": 0}}
         ws_info = EnterpriseWorkspaceManager.get_workspace(target_ws) or {}
+        if not ws_info:
+            return {"nodes": [], "edges": [], "summary": {"total_nodes": 0, "total_edges": 0}}
         ws_name = ws_info.get("name", "Active Business Workspace")
         sem_model = build_semantic_model(workspace_id=target_ws)
-        dash = get_dynamic_dashboard()
+        dash = get_dynamic_dashboard(dataset_id=target_ws)
 
         nodes = []
         edges = []

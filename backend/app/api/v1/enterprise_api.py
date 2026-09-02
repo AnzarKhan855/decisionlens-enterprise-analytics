@@ -1,9 +1,13 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from typing import Optional, Dict, Any
 from app.services.enterprise_search import EnterpriseSearchEngine
 from app.services.task_queue import EnterpriseTaskQueue
+from app.core.rbac import get_current_user_from_token
 
-router = APIRouter(tags=["Enterprise Intelligence v13.0"])
+router = APIRouter(
+    tags=["Enterprise Intelligence v13.0"],
+    dependencies=[Depends(get_current_user_from_token)]
+)
 
 
 @router.get("/search")
