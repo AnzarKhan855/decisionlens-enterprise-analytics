@@ -1,4 +1,4 @@
-﻿# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
+# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
 
 # Core Web Framework
 fastapi>=0.110.0,<1.0.0
@@ -36,7 +36,7 @@ python-dotenv>=1.0.0
 psutil>=5.9.0
 anyio>=4.3.0
 joblib>=1.3.2
-threadpoolctl>=3.3.0
+threadpoolctl>=3.6.0
 
 # Testing
 pytest>=8.0.0
