@@ -1,4 +1,4 @@
-﻿# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
+# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
 
 # Core Web Framework
 fastapi>=0.110.0,<1.0.0
@@ -11,7 +11,7 @@ starlette>=0.37.0
 # Database & Storage
 SQLAlchemy>=2.0.0
 psycopg2-binary>=2.9.9
-pymongo>=4.6.0
+pymongo>=4.17.0
 duckdb>=1.0.0
 redis>=5.0.0
 
