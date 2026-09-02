@@ -1,4 +1,4 @@
-﻿# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
+# DecisionLens Enterprise Backend Dependencies (Python 3.12+)
 
 # Core Web Framework
 fastapi>=0.110.0,<1.0.0
@@ -16,7 +16,7 @@ duckdb>=1.0.0
 redis>=5.0.0
 
 # Data Science & Analytics
-pandas>=2.2.0
+pandas>=3.0.5
 numpy>=1.26.0
 scipy>=1.12.0
 scikit-learn>=1.4.0
