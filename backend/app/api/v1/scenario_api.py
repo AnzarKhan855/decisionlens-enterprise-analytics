@@ -235,6 +235,19 @@ def simulate_scenario_data_driven(
         db.close()
 
 
+alias_router = APIRouter(tags=["Scenario Simulation"], dependencies=[Depends(require_permission("view_dashboards"))])
+
+
+@alias_router.get("/scenario/levers")
+def get_scenario_levers_alias(dataset_id: Optional[str] = Query(None), workspace_id: Optional[str] = Query(None)):
+    return get_scenario_levers(dataset_id, workspace_id)
+
+
+@alias_router.post("/scenario/simulate")
+def simulate_scenario_alias(request: ScenarioSimulateRequest, dataset_id: Optional[str] = Query(None), workspace_id: Optional[str] = Query(None)):
+    return simulate_scenario_data_driven(request, dataset_id, workspace_id)
+
+
 @router.post("/simulate")
 def simulate_scenario_legacy(request: ScenarioRequest, dataset_id: Optional[str] = Query(None)):
     """

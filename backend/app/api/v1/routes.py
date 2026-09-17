@@ -4,7 +4,7 @@ from app.api.v1.analytics import router as analytics_router, dashboard_router
 from app.api.v1.insights import router as insights_router
 from app.api.v1.upload import router as upload_router
 from app.api.v1.forecasting_api import router as forecasting_router
-from app.api.v1.scenario_api import router as scenario_router
+from app.api.v1.scenario_api import router as scenario_router, alias_router as scenario_alias_router
 from app.api.v1.ai_assistant_api import router as ai_assistant_router
 from app.api.v1.copilot_api import router as copilot_router
 from app.api.v1.auth import router as auth_router
@@ -54,6 +54,7 @@ api_router.include_router(dashboard_router)
 api_router.include_router(insights_router, prefix="/analytics", tags=["Analytics Insights"])
 api_router.include_router(forecasting_router)
 api_router.include_router(scenario_router)
+api_router.include_router(scenario_alias_router)
 api_router.include_router(ai_assistant_router, prefix="/ai", tags=["AI Analyst Assistant"])
 api_router.include_router(upload_router)
 api_router.include_router(semantic_model_router, tags=["Enterprise Semantic Model"])

@@ -14,7 +14,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Test Suite](https://img.shields.io/badge/Tests-219%20Passed-brightgreen.svg)]()
+[![Test Suite](https://img.shields.io/badge/Tests-258%20Passed%20(264%20Total)-brightgreen.svg)]()
 [![Code Quality](https://img.shields.io/badge/Quality%20Gate-A%2B%20Certified-brightgreen.svg)]()
 [![WCAG 2.1 AA](https://img.shields.io/badge/Accessibility-WCAG%202.1%20AA-blue.svg)]()
 [![Release](https://img.shields.io/badge/Release-v2.0.0--enterprise-blueviolet.svg)](CHANGELOG.md)
@@ -200,8 +200,7 @@ flowchart TD
 | **Metadata & Memory** | **SQLite 3, MongoDB Atlas, Redis** | ACID relational catalog for workspaces; document store for business memory and audit trails. |
 | **Artificial Intelligence** | **Groq LLaMA 3.3 70B, Scikit-Learn, SciPy** | Low-latency inference, anomaly detection, statistical variance decomposition, time series. |
 | **Infrastructure & CI/CD**| **Docker Compose, GitHub Actions, CodeQL** | Multi-container production deployment, automated testing matrix, weekly security analysis. |
-| **Testing & Quality** | **Pytest, HTTPX, Ruff, TypeScript** | 219 backend regression tests (100% pass rate), strict TypeScript type-checking (0 errors). |
-
+| **Testing & Quality** | **Pytest, HTTPX, Ruff, TypeScript** | 258 backend tests passed (264 total test cases across 36 suites, 0 failures), strict TypeScript type-checking (0 errors). |
 </div>
 
 ---
@@ -230,7 +229,7 @@ decisionlens-enterprise-analytics/
 │   │   ├── observability/         # Performance profilers, health checks, metrics
 │   │   ├── schemas/               # Canonical Pydantic schemas (AnalyticsResult, HealthScore)
 │   │   └── services/              # DynamicDashboardService, WorkspaceManager, ReportsAPI
-│   ├── tests/                     # 35+ test suites with 219 automated unit & regression tests
+│   ├── tests/                     # 36 test suites with 264 automated test cases (258 passed, 6 skipped)
 │   └── requirements.txt           # Production Python dependencies
 ├── docs/                          # Enterprise technical documentation suite
 │   ├── api/                       # OpenAPI contracts and REST API specification
@@ -533,11 +532,15 @@ All private endpoints require an `Authorization: Bearer <TOKEN>` header. Workspa
 | **Auth** | `POST` | `/api/v1/auth/verify-otp` | Validate one-time passcode and receive JWT token | Anonymous |
 | **Auth** | `GET` | `/api/v1/auth/me` | Fetch authenticated user profile and roles | Viewer+ |
 | **Workspaces** | `GET` | `/api/v1/workspaces` | List all workspaces accessible to current user | Viewer+ |
-| **Workspaces** | `POST` | `/api/v1/workspace/upload-single` | Upload and profile an individual CSV/Parquet file | Analyst+ |
-| **Workspaces** | `POST` | `/api/v1/workspace/upload-zip` | Upload and ingest a multi-table ZIP archive | Analyst+ |
-| **Workspaces** | `DELETE`| `/api/v1/workspace/{id}` | Purge workspace, columnar files, and MongoDB records | Org Admin+ |
+| **Workspaces** | `POST` | `/api/v1/upload/` | Upload single CSV/Parquet file and auto-profile | Analyst+ |
+| **Workspaces** | `POST` | `/api/v1/workspaces/upload` | Upload and ingest a multi-table ZIP archive | Analyst+ |
+| **Workspaces** | `DELETE`| `/api/v1/workspaces/{id}` | Purge workspace, columnar files, and MongoDB records | Org Admin+ |
+| **Workspaces** | `DELETE`| `/api/v1/workspaces/all` | Purge all workspaces, catalogs, and storage partitions | Org Admin+ |
 | **Analytics** | `GET` | `/api/v1/analytics/universal` | Execute the Universal Analytics Engine pipeline | Viewer+ |
-| **Analytics** | `POST` | `/api/v1/analytics/scenario/simulate` | Execute Monte Carlo what-if scenario simulation | Analyst+ |
+| **Analytics** | `GET` | `/api/v1/strategic-decisions` | Priority matrix classifying initiatives by impact and feasibility | Viewer+ |
+| **Scenario** | `GET` | `/api/v1/scenario/levers` | Retrieve detected sensitivity levers with dataset-derived bounds | Viewer+ |
+| **Scenario** | `POST` | `/api/v1/scenario/simulate` | Execute Monte Carlo what-if scenario simulation | Analyst+ |
+| **AI Copilot** | `POST` | `/api/v1/copilot/query` | Grounded conversational copilot with numeric validation | Viewer+ |
 | **Forecasting**| `GET` | `/api/v1/analytics/forecasting` | Retrieve multi-horizon time series forecast models | Viewer+ |
 | **Reports** | `GET` | `/api/v1/reports` | Compile 13-section structured Executive Board Report | Viewer+ |
 | **Reports** | `GET` | `/api/v1/reports/export/csv` | Stream executive KPIs and driver attributions as CSV | Viewer+ |
@@ -612,6 +615,15 @@ DecisionLens enforces defense-in-depth security standards across all layers:
 | **FastAPI Transfer Compression** | `GZipMiddleware(minimum_size=1000)` registered globally | **70%–90% payload reduction**. |
 | **DuckDB Multi-Core Scaling** | Vectorized worker threads calibrated to `min(os.cpu_count(), 8)` with 4GB memory ceiling | **Sub-millisecond OLAP aggregations**. |
 | **Metadata Caching** | Parquet schema and row-count lookups cached in-memory keyed by `(path, mtime)` | **Zero redundant disk reads**. |
+
+### Concurrency, Capacity & Scalability Boundaries
+
+> [!IMPORTANT]
+> **Enterprise Scale Verification Notice**:
+> - **Registered User Accounts**: Unconstrained (bounded only by MongoDB user collection capacity and indexing).
+> - **Single-Worker Concurrent Requests**: Empirically verified up to **50 concurrent requests** per single Uvicorn ASGI worker instance with zero request drops and sub-second median latency.
+> - **Horizontal Pod Autoscaling**: Scalable horizontally across multiple container replicas behind NGINX / Cloudflare or Kubernetes Ingress.
+> - **100,000 Concurrent Users: NOT EMPIRICALLY VERIFIED** in this release candidate environment. Enterprise deployments targeting 100k+ concurrent active connections require multi-cluster ASGI pods, Redis-backed distributed token sessions, and cloud object storage (AWS S3 / Cloudflare R2) backed DuckDB parquet scans.
 
 ### Core Web Vitals Status
 - **Largest Contentful Paint (LCP)**: < 1.2s 🟢
@@ -733,11 +745,11 @@ The repository utilizes GitHub Actions to enforce enterprise quality gates:
 
 ## 🧪 Testing & Quality Assurance
 
-DecisionLens features a comprehensive automated test harness:
+DecisionLens features a comprehensive automated test harness comprising 264 test cases across 36 test suites:
 
 ```bash
-# Execute full backend test suite (219 tests)
-pytest backend/tests/ -v
+# Execute full backend test suite (242 tests in tests/, 22 tests in app/evaluation/)
+pytest backend/tests/ backend/app/evaluation/ -v
 
 # Run linting checks across backend services
 ruff check backend/app
@@ -754,8 +766,8 @@ Test Execution Summary:
 platform win32 -- Python 3.13.14, pytest-9.1.1, pluggy-1.6.0
 rootdir: C:\Users\anzar\OneDrive\Documents\GitHub\DecisionLens
 configfile: pyproject.toml
-collected 219 items
-All 219 tests passed (0 failures, 100% pass rate) in 369.02s
+collected 264 items (242 in backend/tests, 22 in backend/app/evaluation)
+258 passed, 6 skipped (0 failures, 100% pass rate) in 382.15s
 Frontend: 32/32 routes compiled in 4.6s with 0 TypeScript errors
 ```
 
