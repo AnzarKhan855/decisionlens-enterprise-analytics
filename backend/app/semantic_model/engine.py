@@ -1,47 +1,35 @@
 import json
-from typing import Any, Dict, List, Optional
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from app.semantic_model.core import (
-    SemanticModel,
-    TableMetadata,
-    TableRole,
-    BusinessDomain,
-    DatasetType,
-    ColumnSemanticType,
-    TimeGrain,
-    PredictionTaskType,
-    DataQualityDimension,
-    AnomalyCategory,
-    ColumnClassification,
-    TimeIntelligence,
-    DataQualityScores,
-    PredictionPreparation,
-    AnomalyPreparation,
-)
-from app.semantic_model.cache import SemanticModelCache, get_cache, invalidate_all_caches
-from app.semantic_model.detector import classify_table, detect_specialized_table_type
-from app.semantic_model.key_detector import detect_primary_keys, detect_foreign_keys_from_relationships, build_pk_lookup
-from app.semantic_model.relationship_detector import discover_relationships
-from app.semantic_model.hierarchy_detector import detect_hierarchies
-from app.semantic_model.domain_detector import classify_domain, classify_dataset_type, BUSINESS_DOMAIN_TO_DATASET_TYPE
-from app.semantic_model.entity_detector import detect_business_entities
-from app.semantic_model.measure_detector import detect_measures
-from app.semantic_model.time_detector import detect_time_columns
-from app.semantic_model.diagram import generate_mermaid_diagram, generate_dot_diagram, generate_json_diagram
-from app.semantic_model.lineage import generate_lineage, trace_column_lineage, impact_analysis
-from app.semantic_model.glossary import generate_business_glossary
-from app.semantic_model.optimization import (
-    optimize_for_scale,
-    get_optimized_table_list,
-    estimate_memory_footprint,
-)
-from app.ingestion.workspace_discovery import WorkspaceDiscoveryEngine, clean_table_name
-from app.ingestion.semantic_profiler import SemanticDataProfiler
-from app.services.workspace_service import EnterpriseWorkspaceManager
 from app.database.storage import STORAGE_DIR
-from app.retail.canonical_model import build_canonical_model, CanonicalRetailModel
+from app.ingestion.semantic_profiler import SemanticDataProfiler
+from app.ingestion.workspace_discovery import clean_table_name
+from app.retail.canonical_model import CanonicalRetailModel, build_canonical_model
+from app.semantic_model.cache import get_cache
+from app.semantic_model.core import (
+    BusinessDomain,
+    ColumnSemanticType,
+    DatasetType,
+)
+from app.semantic_model.detector import classify_table, detect_specialized_table_type
+from app.semantic_model.diagram import generate_dot_diagram, generate_json_diagram, generate_mermaid_diagram
+from app.semantic_model.domain_detector import BUSINESS_DOMAIN_TO_DATASET_TYPE, classify_dataset_type, classify_domain
+from app.semantic_model.entity_detector import detect_business_entities
+from app.semantic_model.glossary import generate_business_glossary
+from app.semantic_model.hierarchy_detector import detect_hierarchies
+from app.semantic_model.key_detector import build_pk_lookup, detect_foreign_keys_from_relationships, detect_primary_keys
+from app.semantic_model.lineage import generate_lineage, impact_analysis, trace_column_lineage
+from app.semantic_model.measure_detector import detect_measures
+from app.semantic_model.optimization import (
+    estimate_memory_footprint,
+    get_optimized_table_list,
+    optimize_for_scale,
+)
+from app.semantic_model.relationship_detector import discover_relationships
+from app.semantic_model.time_detector import detect_time_columns
+from app.services.workspace_service import EnterpriseWorkspaceManager
 
 
 def _workspace_prefix_for(workspace_id: str) -> str:
@@ -313,10 +301,14 @@ class SemanticModelEngine:
                         **cm,
                     })
 
+            has_operational_tables = any(t.get("role") in ("Fact Table", "Dimension Table") for t in tables_meta)
+            has_lookup_tables = any(t.get("role") in ("Lookup Table", "Reference Table") for t in tables_meta)
+            is_lookup_only = (not has_operational_tables and has_lookup_tables) if tables_meta else False
+
             result = {
                 "workspace_id": target_ws,
                 "status": "READY",
-                "is_lookup_only": len(fact_tables) == 0,
+                "is_lookup_only": is_lookup_only,
                 "domain": domain_info.get("domain", "Generic Business"),
                 "domain_confidence": domain_info.get("confidence", 50.0),
                 "domain_reason": domain_info.get("reason", ""),

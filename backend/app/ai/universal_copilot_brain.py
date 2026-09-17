@@ -1,13 +1,8 @@
-from typing import Any, Dict, List, Optional, Tuple
-from pathlib import Path
 import re
-from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from app.database.duckdb_engine import DuckDBEngine
-from app.semantic_model.engine import build_semantic_model
-from app.analytics.data_catalog_engine import EnterpriseDataCatalogEngine
-from app.services.workspace_service import EnterpriseWorkspaceManager
-from app.ingestion.semantic_profiler import SemanticDataProfiler
+from app.ai.evidence_builder import EvidenceBuilder
 from app.ai.validation.answer_validator import AnswerValidationLayer
 from app.ai.validation.schemas import (
     AnswerValidationRequest,
@@ -16,9 +11,12 @@ from app.ai.validation.schemas import (
     NumericClaim,
     RecommendationClaim,
 )
-from app.ai.evidence_builder import EvidenceBuilder
-from app.semantic_model.core import SemanticModel
+from app.database.duckdb_engine import DuckDBEngine
+from app.ingestion.semantic_profiler import SemanticDataProfiler
 from app.logging.logger import get_logger
+from app.semantic_model.core import SemanticModel
+from app.semantic_model.engine import build_semantic_model
+from app.services.workspace_service import EnterpriseWorkspaceManager
 
 logger = get_logger(__name__)
 
@@ -136,8 +134,7 @@ class UniversalAIBrain:
 
     @classmethod
     def _resolve_parquet_path(cls, workspace_id: Optional[str] = None, dataset_id: Optional[str] = None) -> Optional[Path]:
-        from app.database.storage import STORAGE_DIR
-        from app.database.storage import ParquetStorageManager
+        from app.database.storage import STORAGE_DIR, ParquetStorageManager
 
         if dataset_id and dataset_id != "latest":
             direct = ParquetStorageManager.get_parquet_path(dataset_id)
@@ -166,7 +163,11 @@ class UniversalAIBrain:
                     continue
                 p = Path(fp_str)
                 if not p.exists():
-                    continue
+                    alt_p = STORAGE_DIR / p.name
+                    if alt_p.exists():
+                        p = alt_p
+                    else:
+                        continue
                 if p.name.startswith(("sample-", "unified_", "tmp_")):
                     continue
                 try:
@@ -193,15 +194,16 @@ class UniversalAIBrain:
             except Exception:
                 pass
 
-        parquets = list(STORAGE_DIR.glob("*.parquet")) + list((STORAGE_DIR / "parquet").glob("*.parquet"))
-        for p in parquets:
-            if p.name.startswith(("unified_", "sample-")):
-                continue
-            if p.stat().st_size > 0:
-                return p
+        # Strict workspace resolution - never fall back to unrelated datasets
+        from app.database.storage import ParquetStorageManager
+        ws_parquet = ParquetStorageManager.get_parquet_path_for_workspace(target_ws_id)
+        if ws_parquet and ws_parquet.exists():
+            return ws_parquet
 
-        if parquets:
-            return parquets[0]
+        direct = STORAGE_DIR / f"{target_ws_id}.parquet"
+        if direct.exists():
+            return direct
+
         return None
 
     @classmethod
@@ -366,14 +368,15 @@ class UniversalAIBrain:
             from app.analytics.universal_engine import UniversalAnalyticsEngine
             result = UniversalAnalyticsEngine.analyze(semantic_model, parquet_path=parquet_path, workspace_id=ws_id)
             return result.to_dict()
-        except Exception as e:
+        except Exception:
             return None
 
     @classmethod
     def _run_prediction(cls, semantic_model: SemanticModel, parquet_path: Path, analytics_dict: Optional[Dict[str, Any]] = None) -> Optional[List[Any]]:
         try:
-            from app.ml.prediction_engine import UniversalPredictionEngine
             from types import SimpleNamespace
+
+            from app.ml.prediction_engine import UniversalPredictionEngine
             partial_for_prediction = SimpleNamespace(
                 trends=analytics_dict.get("trends", {}) if analytics_dict else {},
                 correlations=analytics_dict.get("correlations", []) if analytics_dict else [],
@@ -402,8 +405,8 @@ class UniversalAIBrain:
         predictions: Optional[List[Any]],
     ) -> Dict[str, Any]:
         try:
-            from app.schemas.analytics import AnalyticsResult
             from app.reports.executive_report_engine import UniversalExecutiveReportEngine
+            from app.schemas.analytics import AnalyticsResult
 
             if not analytics_dict:
                 return {}
@@ -1046,7 +1049,7 @@ class UniversalAIBrain:
         profile = {}
         try:
             profile = SemanticDataProfiler.profile(parquet_path)
-        except Exception as e:
+        except Exception:
             pass
 
         measures = profile.get("column_categories", {}).get("measures", [])

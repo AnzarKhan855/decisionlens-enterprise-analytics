@@ -1,23 +1,19 @@
 import uuid
-import os
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
-from fastapi import APIRouter, File, HTTPException, UploadFile, Query, Form, Body, BackgroundTasks, Depends
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.rbac import get_current_user_from_token
-from app.database.storage import ParquetStorageManager
-from app.database.duckdb_engine import DuckDBEngine
-from app.ingestion.generic_loader import GenericDataLoader, CsvImportError
-from app.ingestion.dataset_detector import DatasetDetector
-from app.ingestion.validator import DataValidator
 from app.database.connection import SessionLocal
 from app.database.crud import save_dataset
-from app.database.mongodb import datasets as mongo_datasets, workspaces as mongo_workspaces
+from app.database.storage import ParquetStorageManager
+from app.ingestion.dataset_detector import DatasetDetector
+from app.ingestion.generic_loader import CsvImportError, GenericDataLoader
+from app.ingestion.validator import DataValidator
 from app.logging.logger import get_logger
-from app.security.file_validator import validate_upload, sanitize_filename
-from app.security.input_sanitizer import InputSanitizer
+from app.security.file_validator import sanitize_filename, validate_upload
 
 logger = get_logger(__name__)
 
@@ -78,8 +74,6 @@ def process_single_file(file: UploadFile, workspace_id: Optional[str] = None, ba
         ws_id = workspace_id.strip()
     elif existing_ws:
         ws_id = existing_ws["workspace_id"]
-    elif active_ws_id:
-        ws_id = active_ws_id
     else:
         ws_id = f"ws-{uuid.uuid4().hex[:8]}"
 
@@ -88,7 +82,7 @@ def process_single_file(file: UploadFile, workspace_id: Optional[str] = None, ba
         current_stage = "Parquet Storage Conversion"
         raw_path = ParquetStorageManager.save_raw_file(file_bytes, ws_id, filename)
         orig_stem = Path(filename).stem.lower().replace("-", "_").replace(" ", "_")
-        clean_name = f"{ws_id}_{orig_stem}"
+        clean_name = f"{ws_id}__{orig_stem}"
         parquet_path = GenericDataLoader.convert_to_parquet(raw_path, clean_name)
 
         current_stage = "Domain Intelligence Classification"
@@ -127,6 +121,11 @@ def process_single_file(file: UploadFile, workspace_id: Optional[str] = None, ba
         EnterpriseWorkspaceManager.set_active_workspace(ws_id)
 
         invalidate_semantic_model_cache()
+        try:
+            from app.services.analytics_cache_service import AnalyticsCacheService
+            AnalyticsCacheService.invalidate(ws_id)
+        except Exception:
+            pass
 
         return {
             "status": "success",

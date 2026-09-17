@@ -1,0 +1,35 @@
+warning: in the working copy of 'backend/app/analytics/recommendation_engine.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/api/v1/analytics.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/api/v1/upload.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/api/v1/workspace_upload.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/database/storage.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/semantic_model/engine.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/services/dynamic_dashboard_service.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/services/enterprise_strategy_engine.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/services/workspace_service.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/app/datasets/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/components/dashboard/DynamicDashboardShell.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/components/ui/Select.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/components/ui/Switch.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/lib/workspace-resolver.ts', LF will be replaced by CRLF the next time Git touches it
+ backend/app/ai/universal_copilot_brain.py          |  53 [32m++++++[m[31m-----[m
+ backend/app/analytics/recommendation_engine.py     |  41 [32m+++++[m[31m---[m
+ backend/app/api/v1/analytics.py                    |  55 [32m++++++++[m[31m---[m
+ backend/app/api/v1/upload.py                       |  25 [32m+++[m[31m--[m
+ backend/app/api/v1/workspace_upload.py             |  44 [32m+++++[m[31m----[m
+ backend/app/database/storage.py                    |  20 [32m+++[m[31m-[m
+ backend/app/semantic_model/engine.py               |  54 [32m+++++[m[31m------[m
+ backend/app/services/dynamic_dashboard_service.py  |  18 [32m+++[m[31m-[m
+ backend/app/services/enterprise_strategy_engine.py |  36 [32m++++[m[31m---[m
+ backend/app/services/workspace_service.py          | 104 [32m++++++++++++++++++[m[31m---[m
+ frontend/app/datasets/page.tsx                     |   6 [32m+[m[31m-[m
+ frontend/app/forecasts/page.tsx                    |  11 [32m++[m[31m-[m
+ .../components/dashboard/DynamicDashboardShell.tsx |  11 [32m++[m[31m-[m
+ frontend/components/ui/Select.tsx                  |  21 [32m++[m[31m---[m
+ frontend/components/ui/Switch.tsx                  |   5 [32m+[m[31m-[m
+ frontend/debug_login.js                            |  33 [31m-------[m
+ frontend/debug_sidebar.js                          |  46 [31m---------[m
+ frontend/lib/api.ts                                |   2 [32m+[m[31m-[m
+ frontend/lib/workspace-resolver.ts                 |  39 [32m+++++[m[31m---[m
+ pyproject.toml                                     |   2 [32m+[m[31m-[m
+ 20 files changed, 353 insertions(+), 273 deletions(-)

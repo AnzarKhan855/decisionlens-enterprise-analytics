@@ -1,17 +1,17 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, Path
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, Optional
 
-from app.services.dynamic_dashboard_service import get_dynamic_dashboard
-from app.services.workspace_service import EnterpriseWorkspaceManager
-from app.services.analytics_cache_service import AnalyticsCacheService
-from app.cache.memory_cache import TTLCache
+from fastapi import APIRouter, Depends, HTTPException, Query
+
 from app.analytics.universal_engine import UniversalAnalyticsEngine
-from app.semantic_model.core import SemanticModel
-from app.ai.universal_copilot_brain import UniversalAIBrain
+from app.cache.memory_cache import TTLCache
 from app.core.rbac import require_permission
 from app.database.mongodb import insights as mongo_insights
 from app.logging.logger import get_logger
+from app.semantic_model.core import SemanticModel
+from app.services.analytics_cache_service import AnalyticsCacheService
+from app.services.dynamic_dashboard_service import get_dynamic_dashboard
+from app.services.workspace_service import EnterpriseWorkspaceManager
 
 logger = get_logger(__name__)
 
@@ -26,14 +26,39 @@ _cache = TTLCache(maxsize=4, ttl=30.0)
 
 
 def _get_parquet_path(workspace_id: Optional[str] = None) -> Optional[Path]:
+    from app.database.storage import STORAGE_DIR, ParquetStorageManager
     target_ws = workspace_id or EnterpriseWorkspaceManager.get_active_workspace_id()
-    if target_ws:
-        ws = EnterpriseWorkspaceManager.get_workspace(target_ws)
-        if ws and ws.get("tables"):
-            for t in ws["tables"]:
-                fp = t.get("file_path")
-                if fp and Path(fp).exists():
-                    return Path(fp)
+    if not target_ws:
+        return None
+
+    # 1. Check workspace registered tables
+    ws = EnterpriseWorkspaceManager.get_workspace(target_ws)
+    if ws and ws.get("tables"):
+        for t in ws["tables"]:
+            fp = t.get("file_path")
+            if fp:
+                p = Path(fp)
+                if p.exists():
+                    return p
+                alt = STORAGE_DIR / p.name
+                if alt.exists():
+                    return alt
+
+    # 2. Check ParquetStorageManager workspace resolution
+    ws_path = ParquetStorageManager.get_parquet_path_for_workspace(target_ws)
+    if ws_path and ws_path.exists():
+        return ws_path
+
+    # 3. Check unified dataset
+    unified = STORAGE_DIR / f"unified_{target_ws}.parquet"
+    if unified.exists():
+        return unified
+
+    # 4. Check direct dataset id
+    direct = STORAGE_DIR / f"{target_ws}.parquet"
+    if direct.exists():
+        return direct
+
     return None
 
 

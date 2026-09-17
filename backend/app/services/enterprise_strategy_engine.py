@@ -1,36 +1,35 @@
 from __future__ import annotations
 
-import math
 import re
-from typing import Any, Dict, List, Optional, Tuple
 from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional
 
 import duckdb
 
-from app.services.strategy_engine import StrategyDecisionEngine
-from app.services.workspace_service import EnterpriseWorkspaceManager
-from app.services.analytics_cache_service import AnalyticsCacheService
 from app.database.mongodb import (
-    strategy_reports,
     decision_trees,
-    risk_profiles,
-    opportunity_profiles,
-    scenario_history,
     executive_briefings,
-)
-from app.schemas.strategy import (
-    StrategyReport,
-    ExecutiveSummary,
-    BusinessDriver,
-    RiskItem,
-    OpportunityItem,
-    ExecutiveRecommendation,
-    ScenarioAnalysis,
-    BusinessImpact,
-    DecisionNode,
-    CrossKPIRelationship,
+    opportunity_profiles,
+    risk_profiles,
+    scenario_history,
+    strategy_reports,
 )
 from app.logging.logger import get_logger
+from app.schemas.strategy import (
+    BusinessDriver,
+    BusinessImpact,
+    CrossKPIRelationship,
+    DecisionNode,
+    ExecutiveRecommendation,
+    ExecutiveSummary,
+    OpportunityItem,
+    RiskItem,
+    ScenarioAnalysis,
+    StrategyReport,
+)
+from app.services.analytics_cache_service import AnalyticsCacheService
+from app.services.strategy_engine import StrategyDecisionEngine
+from app.services.workspace_service import EnterpriseWorkspaceManager
 
 logger = get_logger(__name__)
 
@@ -57,8 +56,8 @@ class EnterpriseStrategyEngine:
             if cached is not None:
                 return cached
             try:
-                from app.api.v1.analytics import _get_parquet_path, _get_or_build_semantic_model, _load_profile
                 from app.analytics.universal_engine import UniversalAnalyticsEngine
+                from app.api.v1.analytics import _get_or_build_semantic_model, _get_parquet_path, _load_profile
             except ImportError:
                 return None
             path = _get_parquet_path(workspace_id)
@@ -92,9 +91,8 @@ class EnterpriseStrategyEngine:
         if not parquet_path:
             return None
         try:
-            from app.database.duckdb_engine import DuckDBEngine
-            con = DuckDBEngine.get_connection()
             path_str = str(parquet_path).replace("\\", "/")
+            con = duckdb.connect(":memory:")
             con.execute(f"CREATE OR REPLACE VIEW strategy_view AS SELECT * FROM read_parquet('{path_str}')")
             return con
         except Exception as exc:

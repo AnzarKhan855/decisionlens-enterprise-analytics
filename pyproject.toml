@@ -42,7 +42,7 @@ dev = [
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-testpaths = ["backend/tests"]
+testpaths = ["backend/tests", "backend/app/evaluation"]
 pythonpath = ["backend"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]

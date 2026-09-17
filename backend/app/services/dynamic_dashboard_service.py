@@ -34,6 +34,10 @@ _MEASURE_COLUMN_KEYWORDS = [
     "width", "depth", "count", "total", "sum", "avg", "mean", "installment",
     "sequential", "photos_qty", "description_length", "name_length",
     "lat", "lng", "latitude", "longitude",
+    "threat", "packet", "latency", "bandwidth", "vulnerability", "port", "load",
+    "cpu", "memory", "ping", "incident", "anomaly", "dose", "dosage", "glucose",
+    "pressure", "pulse", "vitals", "salary", "headcount", "tenure", "overtime",
+    "throughput", "downtime", "yield", "defect",
 ]
 
 
@@ -146,7 +150,11 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
                     continue
                 p = Path(fp)
                 if not p.exists():
-                    continue
+                    alt_p = STORAGE_DIR / p.name
+                    if alt_p.exists():
+                        p = alt_p
+                    else:
+                        continue
                 if p.name.startswith(_SYSTEM_FILE_PREFIXES):
                     continue
                 measure_cols, row_count = _profile_table_score(p)
@@ -165,6 +173,12 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
                     return ws_unified
             except Exception as e:
                 logger.debug(f"Unified parquet check failed for {ws_unified}: {str(e)}")
+
+        # Fallback to ParquetStorageManager resolution for workspace
+        from app.database.storage import ParquetStorageManager
+        ws_direct_or_glob = ParquetStorageManager.get_parquet_path_for_workspace(active_ws_id)
+        if ws_direct_or_glob and ws_direct_or_glob.exists():
+            return ws_direct_or_glob
 
     if active_ws_id:
         return None
@@ -231,7 +245,7 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
                 return res, None
             return res
 
-        active_ws = EnterpriseWorkspaceManager.get_active_workspace_id() or ""
+        active_ws = target_ws_id or EnterpriseWorkspaceManager.get_active_workspace_id() or ""
         cache_key = f"dashboard:{active_ws}:{parquet_path}"
         cached = _dashboard_cache.get(cache_key, workspace_id=active_ws)
         if cached is not None:

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
-from app.ingestion.semantic_profiler import SemanticDataProfiler
+from typing import Any, Dict, List, Optional
+
 from app.ai.explainable_ai_engine import ExplainableAIEngine
 from app.database.duckdb_engine import DuckDBEngine
+from app.ingestion.semantic_profiler import SemanticDataProfiler
 
 
 def _kpi_val(kpi: Any, attr: str = "value", default: Any = 0.0) -> Any:
@@ -25,16 +26,24 @@ class MetricDetector:
 
         col_lower = column_name.lower()
         metric_keywords = {
-            "Revenue": ["revenue", "sales", "amount", "total", "income"],
-            "Profit": ["profit", "margin", "net", "earnings"],
-            "Cost": ["cost", "expense", "cogs", "overhead", "fee"],
-            "Quantity": ["quantity", "qty", "volume", "units", "count"],
-            "Price": ["price", "rate", "fare", "premium"],
-            "Rate": ["rate", "percentage", "ratio", "efficiency", "density"],
-            "Score": ["score", "rating", "index", "nps", "grade"],
-            "Duration": ["duration", "time", "period", "interval"],
-            "Count": ["count", "frequency", "number", "total"],
-            "Value": ["value", "worth", "valuation", "capital"],
+            "Revenue": ["revenue", "sales", "amount", "total", "income", "gmv", "billing", "billable", "turnover"],
+            "Profit": ["profit", "margin", "net", "earnings", "ebitda", "ebit"],
+            "Cost": ["cost", "expense", "cogs", "overhead", "fee", "expenditure", "spend"],
+            "Quantity": ["quantity", "qty", "volume", "units", "count", "inventory", "stock", "capacity"],
+            "Price": ["price", "rate", "fare", "premium", "charge"],
+            "Rate": ["rate", "percentage", "ratio", "efficiency", "density", "proportion", "pct", "share", "utilization"],
+            "Score": ["score", "rating", "index", "nps", "grade", "csat", "health", "benchmark"],
+            "Duration": ["duration", "time", "period", "interval", "latency", "delay", "runtime", "elapsed", "hours", "days", "minutes", "seconds", "ms"],
+            "Count": ["count", "frequency", "number", "total", "cases", "occurrences", "tickets", "requests"],
+            "Value": ["value", "worth", "valuation", "capital", "equity", "balance"],
+            # Cybersecurity & IT / Cloud Infrastructure
+            "Security": ["threat", "vulnerability", "severity", "packet", "byte", "bandwidth", "payload", "cpu", "memory", "ping", "incident", "anomaly", "alert", "error", "failed", "attempts", "traffic", "load", "port"],
+            # Healthcare & Life Sciences
+            "Clinical": ["dose", "dosage", "glucose", "pressure", "pulse", "admissions", "length_of_stay", "vitals", "heart_rate", "cholesterol", "temperature", "bmi", "readmission"],
+            # HR & People Operations
+            "Workforce": ["salary", "headcount", "attrition", "tenure", "overtime", "bonus", "compensation", "performance", "turnover", "satisfaction", "leaves", "absenteeism"],
+            # Operations & Supply Chain
+            "Operations": ["throughput", "downtime", "scrap", "yield", "lead_time", "cycle_time", "defect", "fill_rate", "on_time", "dispatch", "delivery"],
         }
         for metric_type, keywords in metric_keywords.items():
             for kw in keywords:
@@ -65,6 +74,8 @@ class RecommendationEngine:
 
         primary_measure = measures[0] if measures else None
         metric_type = MetricDetector.detect_metric_type(primary_measure) if primary_measure else "Record Count"
+        if primary_measure and metric_type == "Unknown":
+            metric_type = "Operational Metric"
 
         if metric_type in ("Record Count", "Unknown"):
             confidence_result = ExplainableAIEngine.compute_confidence(
@@ -268,7 +279,7 @@ class RecommendationEngine:
                     "evidence": f"Repeat Customers: {_kpi_val(repeat_kpi, 'formatted_value', '0')}, Total Customers: {_kpi_val(customer_kpi, 'formatted_value', '0')}. Repeat rate = {repeat_rate:.1%}.",
                     "root_cause": "Weak post-purchase engagement, absence of loyalty incentives, or suboptimal product-market fit for returning buyers.",
                     "priority": "HIGH",
-                    "business_impact": f"Acquiring a new customer costs 5-25x more than retaining an existing one. Current churn is eroding LTV.",
+                    "business_impact": "Acquiring a new customer costs 5-25x more than retaining an existing one. Current churn is eroding LTV.",
                     "expected_gain": "Improving repeat rate from {:.1%} to 35% could increase customer lifetime value by 40-60%.".format(repeat_rate),
                     "recommended_action": "Deploy loyalty points program, win-back email campaigns for lapsed customers, personalized re-order reminders, and subscription models for consumables.",
                     "affected_products": [],
@@ -313,7 +324,7 @@ class RecommendationEngine:
                     "evidence": f"Discount Ratio: {_kpi_val(discount_kpi, 'formatted_value', '0')}. Total Revenue: {_kpi_val(revenue_kpi, 'formatted_value', '0')}. Ratio = {discount_ratio:.1%}.",
                     "root_cause": "Excessive promotional depth, unoptimized coupon codes, or systematic markdowns to move slow inventory.",
                     "priority": "MEDIUM",
-                    "business_impact": f"High discounting reduces effective revenue and trains customers to wait for sales, suppressing full-price conversion.",
+                    "business_impact": "High discounting reduces effective revenue and trains customers to wait for sales, suppressing full-price conversion.",
                     "expected_gain": "Reducing discount ratio by 2-3 points could recover margin equivalent to {_kpi_val(revenue_kpi, 'value', 0.0) * 0.02:,.2f}.",
                     "recommended_action": "Implement dynamic pricing rules, restrict blanket promotions to high-intent segments, introduce loyalty-exclusive discounts, and monitor discount-to-revenue elasticity weekly.",
                     "affected_products": [],
@@ -335,7 +346,7 @@ class RecommendationEngine:
                     "evidence": f"Profit: {_kpi_val(profit_kpi, 'formatted_value', '0')}. Revenue: {_kpi_val(revenue_kpi, 'formatted_value', '0')}. Margin = {profit_margin:.1%}.",
                     "root_cause": "Elevated COGS, uncontrolled operating expenses, high freight/discount ratios, or underperforming low-margin product mix.",
                     "priority": "CRITICAL",
-                    "business_impact": f"Thin margins reduce reinvestment capacity and increase vulnerability to demand shocks.",
+                    "business_impact": "Thin margins reduce reinvestment capacity and increase vulnerability to demand shocks.",
                     "expected_gain": "Improving margin by 5 points on current revenue would add {revenue_kpi.value * 0.05:,.2f} to bottom-line profit.",
                     "recommended_action": "Renegotiate supplier terms, phase out low-margin SKUs, reduce return rates, optimize marketing spend ROI, and implement margin-aware pricing.",
                     "affected_products": [],

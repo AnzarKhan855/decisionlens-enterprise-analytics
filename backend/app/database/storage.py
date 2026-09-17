@@ -1,8 +1,7 @@
-import os
-import shutil
 import logging
+import shutil
 from pathlib import Path
-from typing import Tuple, Optional, List
+from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,18 @@ class ParquetStorageManager:
         if direct.exists():
             return direct
 
-        prefix = f"{dataset_id}__"
+        unified = STORAGE_DIR / f"unified_{dataset_id}.parquet"
+        if unified.exists():
+            return unified
+
+        seen_files = set()
+        matched_files: List[Path] = []
+        for pat in [f"{dataset_id}__*.parquet", f"{dataset_id}_*.parquet"]:
+            for pfile in STORAGE_DIR.glob(pat):
+                if pfile.name not in seen_files:
+                    seen_files.add(pfile.name)
+                    matched_files.append(pfile)
+
         candidates: List[Tuple[int, int, Path]] = []
 
         def _score_file(pfile: Path) -> Tuple[int, int]:
@@ -62,7 +72,7 @@ class ParquetStorageManager:
             except Exception:
                 return 0, 0
 
-        for pfile in STORAGE_DIR.glob(f"{prefix}*.parquet"):
+        for pfile in matched_files:
             if pfile.name.startswith(ParquetStorageManager._SYSTEM_FILE_PREFIXES):
                 continue
             if not pfile.exists():

@@ -1,28 +1,27 @@
 import os
-import sys
+import tempfile
+import time
+import traceback
 import uuid
 import zipfile
-import tempfile
-import traceback
-import time
-from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
 from datetime import UTC, datetime
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Query, BackgroundTasks, Depends
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.rbac import get_current_user_from_token, can_delete_workspace
-from app.logging.logger import get_logger
-
+from app.core.rbac import can_delete_workspace, get_current_user_from_token
 from app.database.connection import SessionLocal
-from app.database.crud import save_dataset, delete_dataset_permanently
-from app.database.storage import ParquetStorageManager
-from app.database.mongodb import workspaces as mongo_workspaces, datasets as mongo_datasets
-from app.ingestion.generic_loader import GenericDataLoader, CsvImportError
-from app.ingestion.semantic_profiler import SemanticDataProfiler
-from app.ingestion.dataset_detector import DatasetDetector
-from app.ingestion.domain_classifier import DatasetDomainClassifier
+from app.database.crud import delete_dataset_permanently, save_dataset
 from app.database.duckdb_engine import DuckDBEngine
+from app.database.mongodb import datasets as mongo_datasets
+from app.database.mongodb import workspaces as mongo_workspaces
+from app.database.storage import ParquetStorageManager
+from app.ingestion.domain_classifier import DatasetDomainClassifier
+from app.ingestion.generic_loader import CsvImportError, GenericDataLoader
+from app.ingestion.semantic_profiler import SemanticDataProfiler
+from app.logging.logger import get_logger
 from app.services.workspace_service import EnterpriseWorkspaceManager
 
 logger = get_logger(__name__)
@@ -46,11 +45,11 @@ async def run_workspace_background_intelligence(ws_id: str):
         await asyncio.sleep(0.05)
 
         EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", 80, "Building Executive Semantic Model")
-        from app.semantic_model.engine import build_semantic_model, invalidate_semantic_model_cache
+        from app.semantic_model.engine import build_semantic_model
         await asyncio.to_thread(build_semantic_model, workspace_id=ws_id, force_rebuild=True)
 
-        from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
         from app.database.storage import STORAGE_DIR
+        from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
         from app.semantic_model.engine import _workspace_prefix_for
         clean_target = _workspace_prefix_for(ws_id)
         parquet_files = []
@@ -303,6 +302,11 @@ async def upload_workspace_zip(
         from app.semantic_model.engine import invalidate_semantic_model_cache
         invalidate_semantic_model_cache()
         _STRUCTURE_CACHE.clear()
+        try:
+            from app.services.analytics_cache_service import AnalyticsCacheService
+            AnalyticsCacheService.invalidate(ws_id)
+        except Exception:
+            pass
 
         # Phase 2: Dispatch background worker task for non-blocking relationship discovery & AI insights
         background_tasks.add_task(run_workspace_background_intelligence, ws_id)
@@ -461,7 +465,7 @@ async def upload_workspace_folder(
             })
 
         EnterpriseWorkspaceManager.set_active_workspace(ws_id)
-        from app.semantic_model.engine import invalidate_semantic_model_cache
+        from app.semantic_model.engine import invalidate_semantic_model_cache, build_semantic_model
         invalidate_semantic_model_cache()
         _STRUCTURE_CACHE.clear()
         unified_model = build_semantic_model(workspace_id=ws_id, force_rebuild=True)
@@ -560,7 +564,7 @@ def get_workspace_structure(workspace_id: Optional[str] = Query(None)):
     try:
         from app.database.storage import STORAGE_DIR
         from app.ingestion.workspace_discovery import WorkspaceDiscoveryEngine
-        from app.semantic_model.engine import build_semantic_model, invalidate_semantic_model_cache
+        from app.semantic_model.engine import build_semantic_model
 
         sem_model = build_semantic_model(workspace_id=target_id, force_rebuild=False)
         discovery = WorkspaceDiscoveryEngine.discover_workspace(STORAGE_DIR, workspace_id=target_id, force_refresh=False)

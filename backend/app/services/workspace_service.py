@@ -1,9 +1,7 @@
-import os
 import json
-import uuid
 import logging
-from typing import Dict, Any, List, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +55,20 @@ class EnterpriseWorkspaceManager:
         except Exception as e:
             logger.warning(f"[Workspace Warning] Could not save workspaces: {e}")
 
+        # Ephemeral container sync to MongoDB
+        try:
+            from app.database.mongodb import workspaces as mongo_workspaces
+            for ws_id, ws_data in cls._workspaces.items():
+                if isinstance(ws_data, dict):
+                    mongo_doc = {k: v for k, v in ws_data.items() if k != "_id"}
+                    mongo_workspaces.update_one(
+                        {"workspace_id": ws_id},
+                        {"$set": mongo_doc},
+                        upsert=True
+                    )
+        except Exception as mongo_err:
+            logger.debug(f"[Workspace Warning] Mongo sync in _save_workspaces failed: {mongo_err}")
+
     @classmethod
     def _load_workspaces(cls):
         if cls._workspaces and getattr(cls, "_loaded", False):
@@ -78,6 +90,41 @@ class EnterpriseWorkspaceManager:
                             }
                 except Exception as e:
                     logger.warning(f"[Workspace Warning] Error reading workspaces.json: {e}")
+
+            # Reconcile with MongoDB workspaces collection (crucial for ephemeral containers like Render)
+            try:
+                from app.database.mongodb import workspaces as mongo_workspaces
+                for doc in mongo_workspaces.find({}):
+                    ws_id = doc.get("workspace_id")
+                    if ws_id and ws_id not in deleted_set:
+                        if ws_id not in cls._workspaces:
+                            cls._workspaces[ws_id] = {
+                                "workspace_id": ws_id,
+                                "name": doc.get("name") or doc.get("workspace_name") or ws_id,
+                                "industry": doc.get("industry") or doc.get("domain") or "Enterprise Domain",
+                                "domain": doc.get("domain") or doc.get("industry") or "Enterprise Domain",
+                                "sha256_hash": doc.get("sha256_hash"),
+                                "business_type": doc.get("business_type", "Enterprise Data Operations"),
+                                "business_model": doc.get("business_model", "Multi-Table Analytics"),
+                                "health_score": doc.get("health_score"),
+                                "data_quality_pct": doc.get("data_quality_pct"),
+                                "ai_ready": True,
+                                "forecast_ready": True,
+                                "connected_tables_count": doc.get("connected_tables_count", 0),
+                                "tables": doc.get("tables", []),
+                                "relationships": doc.get("relationships", []),
+                                "semantic_model": doc.get("semantic_model", {"fact_tables": [], "dimension_tables": [], "lookup_tables": [], "reference_tables": []}),
+                                "lineage": doc.get("lineage", []),
+                                "status": doc.get("status", "Ready"),
+                                "owner": doc.get("owner", "Enterprise Administrator"),
+                                "last_refresh": doc.get("last_refresh", "Just now"),
+                                "created_by": doc.get("created_by", ""),
+                            }
+                        else:
+                            if not cls._workspaces[ws_id].get("tables") and doc.get("tables"):
+                                cls._workspaces[ws_id]["tables"] = doc["tables"]
+            except Exception as mongo_err:
+                logger.debug(f"[Workspace Warning] Mongo sync skipped/failed: {mongo_err}")
 
             cls._loaded = True
         finally:
@@ -388,8 +435,18 @@ class EnterpriseWorkspaceManager:
             from app.ingestion.semantic_profiler import SemanticDataProfiler
             for tbl in tables:
                 fp = tbl.get("file_path")
-                if fp and Path(fp).exists():
-                    prof = SemanticDataProfiler.profile(Path(fp))
+                p = Path(fp) if fp else None
+                if p and not p.exists():
+                    from app.database.storage import STORAGE_DIR
+                    alt_p = STORAGE_DIR / p.name
+                    if alt_p.exists():
+                        p = alt_p
+                    else:
+                        alt_p2 = ParquetStorageManager.get_parquet_path_for_workspace(ws.get("workspace_id", ""))
+                        if alt_p2 and alt_p2.exists():
+                            p = alt_p2
+                if p and p.exists():
+                    prof = SemanticDataProfiler.profile(p)
                     total_rows = prof.get("total_rows", 0)
                     measures = prof.get("column_categories", {}).get("measures", [])
                     dims = prof.get("column_categories", {}).get("dimensions", [])
@@ -485,15 +542,34 @@ class EnterpriseWorkspaceManager:
 
         try:
             from app.database.mongodb import (
-                workspaces, datasets, insights, reports,
-                copilot_history, forecast_cache, conversation_history,
-                report_history, insight_history, forecast_history,
-                recommendation_history, business_goals, executive_decisions,
-                user_feedback, business_milestones, kpi_history,
-                forecast_accuracy, scenario_simulations, generated_sql,
-                audit_logs, dynamic_kpis, dashboard_layouts,
-                strategy_reports, decision_trees, risk_profiles,
-                opportunity_profiles, scenario_history, executive_briefings
+                audit_logs,
+                business_goals,
+                business_milestones,
+                conversation_history,
+                copilot_history,
+                dashboard_layouts,
+                datasets,
+                decision_trees,
+                dynamic_kpis,
+                executive_briefings,
+                executive_decisions,
+                forecast_accuracy,
+                forecast_cache,
+                forecast_history,
+                generated_sql,
+                insight_history,
+                insights,
+                kpi_history,
+                opportunity_profiles,
+                recommendation_history,
+                report_history,
+                reports,
+                risk_profiles,
+                scenario_history,
+                scenario_simulations,
+                strategy_reports,
+                user_feedback,
+                workspaces,
             )
             workspaces.delete_one({"workspace_id": workspace_id})
             datasets.delete_many({"workspace_id": workspace_id})
