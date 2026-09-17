@@ -108,6 +108,7 @@ reports = _CollectionProxy("reports")
 analytics_cache = _CollectionProxy("analytics_cache")
 copilot_history = _CollectionProxy("copilot_history")
 uploads = _CollectionProxy("uploads")
+ingestion_jobs = _CollectionProxy("ingestion_jobs")
 forecast_cache = _CollectionProxy("forecast_cache")
 audit_logs = _CollectionProxy("audit_logs")
 scenario_simulations = _CollectionProxy("scenario_simulations")
@@ -187,6 +188,10 @@ def ensure_indexes():
     db.opportunity_profiles.create_index([("workspace_id", ASCENDING), ("generated_at", DESCENDING)])
     db.scenario_history.create_index([("workspace_id", ASCENDING), ("timestamp", DESCENDING)])
     db.executive_briefings.create_index([("workspace_id", ASCENDING), ("generated_at", DESCENDING)])
+    db.ingestion_jobs.create_index([("job_id", ASCENDING)], unique=True)
+    db.ingestion_jobs.create_index([("workspace_id", ASCENDING), ("created_at", DESCENDING)])
+    db.ingestion_jobs.create_index([("status", ASCENDING)])
+    db.ingestion_jobs.create_index([("created_at", DESCENDING)])
 
 
 def ping_mongodb():

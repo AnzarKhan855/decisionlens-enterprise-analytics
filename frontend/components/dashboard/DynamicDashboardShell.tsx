@@ -149,6 +149,69 @@ const LookupWarning = React.memo(function LookupWarning({ dashboard }: { dashboa
   );
 });
 
+
+const ProcessingDashboardState = React.memo(function ProcessingDashboardState({
+  status,
+  step,
+  progress,
+}: {
+  status?: string;
+  step?: string;
+  progress?: number;
+}) {
+  const currentPct = Math.max(progress || 25, 10);
+  return (
+    <motion.div
+      className="p-8 flex items-center justify-center min-h-[75vh]"
+      role="status"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4 }}
+    >
+      <div className="bg-surface rounded-2xl p-10 border border-border-color shadow-xl text-center flex flex-col items-center justify-center space-y-6 max-w-xl w-full">
+        <div className="p-5 bg-primary-50 text-primary-600 rounded-2xl border border-primary-100 relative">
+          <RefreshCw className="w-12 h-12 text-primary-600 animate-spin" />
+        </div>
+
+        <div className="space-y-2">
+          <span className="px-3 py-1 bg-primary-50 text-primary-600 text-xs font-bold rounded-full uppercase tracking-wider">
+            Ingestion Pipeline Active
+          </span>
+          <h2 className="text-2xl font-extrabold text-text-primary">
+            Analyzing Your Enterprise Data
+          </h2>
+          <p className="text-xs text-text-muted leading-relaxed max-w-md">
+            {step || "Converting tables, profiling columns, and generating executive intelligence..."}
+          </p>
+        </div>
+
+        <div className="w-full space-y-2 max-w-md">
+          <div className="w-full bg-surface-muted rounded-full h-2.5 overflow-hidden border border-border-color">
+            <motion.div
+              className="bg-primary-600 h-full rounded-full transition-all duration-500"
+              style={{ width: `${currentPct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-[11px] font-mono text-text-secondary">
+            <span>Stage: {status || "PROCESSING"}</span>
+            <span>{Math.round(currentPct)}% complete</span>
+          </div>
+        </div>
+
+        <div className="p-4 bg-surface-muted rounded-xl border border-border-color text-[11px] text-text-muted text-left space-y-1.5 w-full">
+          <div className="flex items-center gap-2 text-text-secondary font-semibold">
+            <span className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
+            <span>Autonomous AI Pipeline Running</span>
+          </div>
+          <p>
+            Your dashboard will automatically activate as soon as analytical tables and models are ready. No manual refresh required.
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+});
+
 const NoKpisState = React.memo(function NoKpisState() {
   return (
     <div className="p-8 flex items-center justify-center min-h-[70vh]" role="alert">
@@ -237,8 +300,10 @@ export default function DynamicDashboardShell() {
         const stRes = await api.get(`/workspace/${activeId}/status`);
         const stData = stRes.data;
         setBgStatus(stData as { status: string; current_step?: string; progress: number });
-        if (stData.status === "COMPLETED" || stData.status === "SEMANTIC_READY") {
+        const isReady = stData.status === "COMPLETED" || stData.status === "SEMANTIC_READY" || stData.is_ready;
+        if (isReady) {
           if (intervalId) clearInterval(intervalId);
+          doLoad();
         }
       } catch (e) {
         console.warn("[Dashboard] Background status poll failed", e);
@@ -265,6 +330,21 @@ export default function DynamicDashboardShell() {
       <div className="flex items-center justify-center h-screen bg-background">
         <LoadingStagesComponent loadingStages={loadingStages} loadingStage={loadingStage} progress={progress} />
       </div>
+    );
+  }
+
+  const errorDetails = dashboard?.error_details as Record<string, any> | undefined;
+  const isProcessing =
+    (bgStatus && ["PROCESSING", "PROFILING", "UPLOADING", "VALIDATING", "BUILDING_SEMANTIC_MODEL"].includes(bgStatus.status)) ||
+    (errorDetails?.status === "PROCESSING");
+
+  if (isProcessing && (!dashboard || !dashboard.kpis || dashboard.kpis.length === 0)) {
+    return (
+      <ProcessingDashboardState
+        status={bgStatus?.status || (errorDetails?.status as string | undefined)}
+        step={bgStatus?.current_step || (errorDetails?.step as string | undefined)}
+        progress={bgStatus?.progress}
+      />
     );
   }
 

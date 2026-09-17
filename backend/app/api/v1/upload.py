@@ -1,19 +1,18 @@
+import hashlib
+import threading
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.rbac import get_current_user_from_token
-from app.database.connection import SessionLocal
-from app.database.crud import save_dataset
 from app.database.storage import ParquetStorageManager
-from app.ingestion.dataset_detector import DatasetDetector
-from app.ingestion.generic_loader import CsvImportError, GenericDataLoader
-from app.ingestion.validator import DataValidator
 from app.logging.logger import get_logger
-from app.security.file_validator import sanitize_filename, validate_upload
+from app.security.file_validator import sanitize_filename
+from app.services.ingestion_job_service import IngestionJobService, JobState
+from app.services.workspace_service import EnterpriseWorkspaceManager
 
 logger = get_logger(__name__)
 
@@ -22,8 +21,21 @@ router = APIRouter(
     tags=["Upload"]
 )
 
+CHUNK_SIZE = 1024 * 1024  # 1MB chunk size for memory-safe streaming
+MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024  # 500MB maximum upload limit
 
-def process_single_file(file: UploadFile, workspace_id: Optional[str] = None, background_tasks: Optional[BackgroundTasks] = None, user: Optional[dict] = None):
+
+def process_single_file(
+    file: UploadFile,
+    workspace_id: Optional[str] = None,
+    background_tasks: Optional[BackgroundTasks] = None,
+    user: Optional[dict] = None,
+    sync: bool = False,
+) -> Dict[str, Any]:
+    """
+    Streams the uploaded file to disk, creates a durable Ingestion Job,
+    and dispatches background analytical processing (or executes synchronously if sync=True).
+    """
     current_stage = "File Extension Validation"
     allowed_extensions = [".csv", ".xlsx", ".xls", ".parquet"]
     filename = sanitize_filename(file.filename or "uploaded_file")
@@ -35,141 +47,156 @@ def process_single_file(file: UploadFile, workspace_id: Optional[str] = None, ba
             detail=f"Unsupported file extension '{extension}'. Allowed: {allowed_extensions}"
         )
 
-    MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024
-    file_bytes = file.file.read(MAX_FILE_SIZE_BYTES + 1)
-    if len(file_bytes) > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Maximum size is {MAX_FILE_SIZE_BYTES // (1024*1024)} MB."
-        )
+    # 1. Determine or generate workspace ID early
+    ws_id = workspace_id.strip() if workspace_id and workspace_id.strip() else f"ws-{uuid.uuid4().hex[:8]}"
+    orig_stem = Path(filename).stem.lower().replace("-", "_").replace(" ", "_")
+    ws_title = orig_stem.replace("_", " ").title()
 
-    validation = validate_upload(file_bytes, filename)
-    if not validation["valid"]:
+    # 2. Stream file directly to durable raw storage with SHA256 calculation
+    current_stage = "File Streaming & Deduplication"
+    raw_path = ParquetStorageManager.get_raw_path(ws_id, filename)
+    ParquetStorageManager.ensure_directories()
+
+    hasher = hashlib.sha256()
+    file_size_bytes = 0
+
+    try:
+        with open(raw_path, "wb") as buffer:
+            while True:
+                chunk = file.file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                file_size_bytes += len(chunk)
+                if file_size_bytes > MAX_FILE_SIZE_BYTES:
+                    buffer.close()
+                    raw_path.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large. Maximum size is {MAX_FILE_SIZE_BYTES // (1024*1024)} MB."
+                    )
+                buffer.write(chunk)
+                hasher.update(chunk)
+    except HTTPException:
+        raise
+    except Exception as read_err:
+        if raw_path.exists():
+            raw_path.unlink(missing_ok=True)
+        logger.error("[Upload Stream Error] Failed to stream file %s: %s", filename, read_err)
+        raise HTTPException(status_code=500, detail="Failed to write uploaded file to storage.")
+
+    if file_size_bytes == 0:
+        if raw_path.exists():
+            raw_path.unlink(missing_ok=True)
         raise HTTPException(
             status_code=422,
             detail={
                 "status": "error",
-                "stage": current_stage,
-                "errors": validation["errors"],
-                "recovery_suggestion": "Fix the file issues and retry upload.",
+                "stage": "preflight_empty",
+                "message": f"Uploaded file '{filename}' is empty (0 bytes).",
+                "recovery_suggestion": "Please ensure the file contains valid business data and retry.",
             }
         )
-    for warning in validation.get("warnings", []):
-        logger.warning("[Upload Validation Warning] %s", warning)
 
-    import hashlib
-    file_sha256 = hashlib.sha256(file_bytes).hexdigest()
-    orig_stem = Path(filename).stem.lower().replace("-", "_").replace(" ", "_")
-    from app.services.workspace_service import EnterpriseWorkspaceManager
-    active_ws_id = EnterpriseWorkspaceManager.get_active_workspace_id()
+    file_sha256 = hasher.hexdigest()
 
-    existing_ws = None
+    # 3. Check for existing identical workspace by hash to deduplicate
     for w in EnterpriseWorkspaceManager.get_all_workspaces():
         hashes = w.get("sha256_hashes", [])
         if file_sha256 in hashes or w.get("sha256_hash") == file_sha256:
-            existing_ws = w
+            if not workspace_id:
+                ws_id = w["workspace_id"]
+                ws_title = w.get("name", ws_title)
             break
 
-    if workspace_id and workspace_id.strip():
-        ws_id = workspace_id.strip()
-    elif existing_ws:
-        ws_id = existing_ws["workspace_id"]
-    else:
-        ws_id = f"ws-{uuid.uuid4().hex[:8]}"
+    # 4. Create durable Ingestion Job in MongoDB & memory
+    job = IngestionJobService.create_job(
+        workspace_id=ws_id,
+        dataset_id=ws_id,
+        filename=filename,
+        file_size_bytes=file_size_bytes,
+        user_email=user.get("email", "") if user else "",
+        initial_status=JobState.UPLOADED,
+    )
 
-    db = None
-    try:
-        current_stage = "Parquet Storage Conversion"
-        raw_path = ParquetStorageManager.save_raw_file(file_bytes, ws_id, filename)
-        orig_stem = Path(filename).stem.lower().replace("-", "_").replace(" ", "_")
-        clean_name = f"{ws_id}__{orig_stem}"
-        parquet_path = GenericDataLoader.convert_to_parquet(raw_path, clean_name)
-
-        current_stage = "Domain Intelligence Classification"
-        detection = DatasetDetector.detect_from_parquet(parquet_path)
-        dataset_type = detection["dataset_type"]
-
-        current_stage = "Data Quality Validation & Profiling"
-        validation_report = DataValidator.validate(parquet_path)
-        health_score = validation_report["health_score"]
-        semantic_profile = validation_report["semantic_profile"]
-
-        current_stage = "Dataset Intelligence Layer"
-        from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
-        intelligence_result = DatasetIntelligenceLayer.analyze(workspace_id=ws_id, parquet_path=parquet_path, force_rebuild=True)
-
-        current_stage = "Metadata Registration"
-        db = SessionLocal()
-        db_dataset = save_dataset(
-            db=db,
+    # 5. Execute pipeline either synchronously or asynchronously
+    if sync:
+        logger.info("[Upload] Executing synchronous ingestion for job %s", job["job_id"])
+        final_job = IngestionJobService.run_pipeline(
+            job_id=job["job_id"],
+            raw_file_path=raw_path,
+            workspace_id=ws_id,
             filename=filename,
-            file_path=str(parquet_path),
-            dataset_type=dataset_type,
-            rows=semantic_profile["total_rows"],
-            columns=semantic_profile["total_columns"],
-            file_type=extension.replace(".", "")
+            user=user,
+            extension=extension,
         )
 
-        ws_title = orig_stem.replace("_", " ").title()
-        current_stage = "Workspace Registration & Active Activation"
-        from app.semantic_model.engine import invalidate_semantic_model_cache
+        if final_job.get("status") == JobState.FAILED.value:
+            err = final_job.get("error") or {}
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "status": "error",
+                    "stage": err.get("failed_stage", "PROCESSING"),
+                    "message": err.get("message", "Processing failed"),
+                    "suggested_fix": err.get("suggested_fix", "Check file format and data structure"),
+                }
+            )
 
-        cols_summary = [{"name": c, "type": semantic_profile["columns"][c].get("inferred_type", "VARCHAR")} for c in semantic_profile["columns"]]
-        ws = EnterpriseWorkspaceManager.create_or_get_workspace(ws_id, ws_title, industry=dataset_type, created_by=user.get("email", "") if user else "")
-        EnterpriseWorkspaceManager.add_sha256_hash(ws_id, file_sha256)
-        EnterpriseWorkspaceManager.register_table(ws_id, orig_stem, cols_summary, semantic_profile["total_rows"], str(parquet_path))
-        EnterpriseWorkspaceManager.set_active_workspace(ws_id)
-
-        invalidate_semantic_model_cache()
-        try:
-            from app.services.analytics_cache_service import AnalyticsCacheService
-            AnalyticsCacheService.invalidate(ws_id)
-        except Exception:
-            pass
-
+        metrics = final_job.get("metrics", {})
         return {
             "status": "success",
             "upload_status": "COMPLETED",
+            "job_id": job["job_id"],
             "dataset_id": ws_id,
             "workspace_id": ws_id,
             "workspace_name": ws_title,
             "active_workspace": ws_id,
             "filename": filename,
-            "dataset_type": dataset_type,
-            "health_score": health_score,
-            "rows": semantic_profile["total_rows"],
-            "columns": semantic_profile["total_columns"],
+            "rows": metrics.get("rows", 0),
+            "columns": metrics.get("columns", 0),
+            "health_score": metrics.get("health_score", 100),
+            "dataset_type": metrics.get("domain", "Generic"),
             "intelligence": {
-                "domain": intelligence_result.domain,
-                "domain_confidence": intelligence_result.domain_confidence,
-                "dataset_type": intelligence_result.dataset_type,
-                "status": intelligence_result.status,
-                "generated_at": intelligence_result.generated_at,
+                "domain": metrics.get("domain", "Generic"),
+                "status": "READY",
             }
         }
-    except HTTPException:
-        raise
-    except CsvImportError as csv_err:
-        logger.error("[Upload CSV Import Failure] filename=%s | stage=%s | path=%s | error=%s", csv_err.filename, csv_err.stage, csv_err.absolute_path, str(csv_err))
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "status": "error",
-                "stage": current_stage,
-                "exception": csv_err.original_exception.__class__.__name__ if csv_err.original_exception else csv_err.stage,
-                "message": str(csv_err),
-                "filename": csv_err.filename,
-                "absolute_path": csv_err.absolute_path,
-                "sql_query": "Check file format and data structure",
-                "suggested_fix": "Check CSV encoding, delimiter, headers, quoting, and malformed rows.",
-            }
+
+    # Asynchronous background execution (default for large files & responsive UI)
+    if background_tasks is not None:
+        background_tasks.add_task(
+            IngestionJobService.run_pipeline,
+            job["job_id"],
+            raw_path,
+            ws_id,
+            filename,
+            user,
+            extension,
         )
-    except Exception as exc:
-        logger.exception("[Upload Unexpected Error] stage=%s | ws_id=%s | exc=%s", current_stage, ws_id, exc)
-        raise HTTPException(status_code=500, detail="An error occurred while processing the uploaded file.")
-    finally:
-        if db is not None:
-            db.close()
+    else:
+        # Fallback thread runner if background_tasks was not passed
+        threading.Thread(
+            target=IngestionJobService.run_pipeline,
+            args=(job["job_id"], raw_path, ws_id, filename, user, extension),
+            daemon=True
+        ).start()
+
+    logger.info("[Upload] Dispatched async ingestion pipeline for job %s (ws: %s)", job["job_id"], ws_id)
+
+    return {
+        "status": "processing",
+        "upload_status": "PROCESSING",
+        "job_id": job["job_id"],
+        "dataset_id": ws_id,
+        "workspace_id": ws_id,
+        "workspace_name": ws_title,
+        "active_workspace": ws_id,
+        "filename": filename,
+        "stage": "UPLOADED",
+        "progress_pct": 20,
+        "message": "Dataset uploaded successfully. Analytical ingestion running in background.",
+        "status_url": f"/api/v1/upload/status/{job['job_id']}",
+    }
 
 
 @router.post("/")
@@ -178,23 +205,35 @@ def upload_dataset(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     workspace_id: Optional[str] = Form(None),
+    sync: bool = Query(False, description="Run synchronously if True (default False for large datasets)"),
     user: dict = Depends(get_current_user_from_token)
 ):
+    """
+    Primary dataset upload endpoint.
+    Accepts CSV, Excel, or Parquet datasets, streams them memory-safely to storage,
+    and returns an Ingestion Job ID for background processing.
+    """
     try:
-        res = process_single_file(file, workspace_id=workspace_id, background_tasks=background_tasks, user=user)
+        res = process_single_file(
+            file=file,
+            workspace_id=workspace_id,
+            background_tasks=background_tasks,
+            user=user,
+            sync=sync,
+        )
         return {
-            "message": "Dataset uploaded and processed successfully.",
+            "message": "Dataset upload accepted. Ingestion in progress.",
             **res
         }
     except HTTPException as http_err:
         raise http_err
     except Exception as exc:
-        logger.exception("[Upload Unexpected Top-Level Error] %s", exc)
+        logger.exception("[Upload Unexpected Error] %s", exc)
         return JSONResponse(
             status_code=500,
             content={
                 "status": "error",
-                "message": "An error occurred while processing the uploaded file.",
+                "message": "An unexpected error occurred while processing the uploaded file.",
                 "exception": exc.__class__.__name__,
                 "detail": str(exc),
                 "suggested_fix": "Please verify file format and dataset structure.",
@@ -204,10 +243,13 @@ def upload_dataset(
 
 @router.post("/batch")
 def upload_multiple_datasets(
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     workspace_id: Optional[str] = Form(None),
+    sync: bool = Query(False),
     user: dict = Depends(get_current_user_from_token)
 ):
+    """Batch dataset upload endpoint."""
     if not files:
         raise HTTPException(status_code=400, detail="No files provided for upload.")
 
@@ -216,14 +258,58 @@ def upload_multiple_datasets(
 
     for f in files:
         try:
-            res = process_single_file(f, workspace_id=workspace_id, user=user)
+            res = process_single_file(
+                file=f,
+                workspace_id=workspace_id,
+                background_tasks=background_tasks,
+                user=user,
+                sync=sync,
+            )
             results.append(res)
         except Exception as e:
             logger.warning("[Batch Upload] Failed to process %s: %s", f.filename, e)
-            errors.append({"filename": f.filename, "error": "Failed to process file. Please check the format and try again."})
+            errors.append({
+                "filename": f.filename,
+                "error": str(e) if isinstance(e, HTTPException) else "Failed to process file.",
+            })
 
     return {
-        "message": f"Successfully processed {len(results)} of {len(files)} uploaded dataset(s).",
+        "message": f"Successfully initiated processing for {len(results)} of {len(files)} uploaded dataset(s).",
         "processed_datasets": results,
-        "errors": errors
+        "errors": errors,
     }
+
+
+@router.get("/status/{job_id}")
+@router.get("/job/{job_id}")
+def get_job_status(job_id: str):
+    """
+    Queries real-time job status, progress percentage, current stage, and metrics.
+    """
+    job = IngestionJobService.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    return job
+
+
+@router.post("/cancel/{job_id}")
+def cancel_job(job_id: str, user: dict = Depends(get_current_user_from_token)):
+    """
+    Cancels an active dataset ingestion job.
+    """
+    success = IngestionJobService.cancel_job(job_id)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Cannot cancel job '{job_id}'. It may already be completed or not found.")
+    cancelled_job = IngestionJobService.get_job(job_id)
+    return {"status": "success", "message": f"Job '{job_id}' has been cancelled.", "job": cancelled_job}
+
+
+@router.get("/workspace/{workspace_id}/status")
+def get_workspace_job_status(workspace_id: str):
+    """
+    Retrieves the most recent ingestion job status for a workspace.
+    """
+    job = IngestionJobService.get_active_job_for_workspace(workspace_id)
+    if job:
+        return job
+    return EnterpriseWorkspaceManager.get_processing_status(workspace_id)

@@ -74,6 +74,26 @@ async def run_workspace_background_intelligence(ws_id: str):
 @router.get("/workspace/{workspace_id}/status")
 @router.get("/workspaces/{workspace_id}/status")
 def get_workspace_status(workspace_id: str):
+    try:
+        from app.services.ingestion_job_service import IngestionJobService
+        job = IngestionJobService.get_active_job_for_workspace(workspace_id)
+        if job:
+            status = job.get("status", "PROCESSING")
+            is_ready = status in ("READY", "COMPLETED", "SEMANTIC_READY")
+            return {
+                "status": "COMPLETED" if is_ready else status,
+                "job_id": job.get("job_id"),
+                "progress": job.get("progress_pct", 100 if is_ready else 50),
+                "current_step": job.get("message") or job.get("current_stage"),
+                "is_ready": is_ready,
+                "message": job.get("message"),
+                "steps": job.get("steps", []),
+                "error": job.get("error"),
+                "metrics": job.get("metrics"),
+            }
+    except Exception as exc:
+        logger.debug("[get_workspace_status] IngestionJobService lookup warning: %s", exc)
+
     return EnterpriseWorkspaceManager.get_processing_status(workspace_id)
 
 

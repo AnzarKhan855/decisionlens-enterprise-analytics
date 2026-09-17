@@ -18,6 +18,17 @@ from app.services.email_service import ResendEmailService
 
 logger = get_logger(__name__)
 
+
+def _async_init_db():
+    try:
+        ensure_indexes()
+        ping_mongodb()
+    except Exception as e:
+        logger.warning("[Startup DB Init Warning] %s", e)
+
+
+threading.Thread(target=_async_init_db, daemon=True).start()
+
 from fastapi import Depends
 
 from app.api.v1.endpoints.diagnostics import router as diagnostics_router
@@ -62,6 +73,7 @@ origins = [
     "http://127.0.0.1:3001",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+    "https://decisionlens-enterprise-analytics.vercel.app",
 ]
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
     origins.append(settings.FRONTEND_URL)
@@ -75,6 +87,7 @@ if extra_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https:\/\/decisionlens-enterprise-analytics(-[a-zA-Z0-9_-]+)?\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Workspace-Id", "X-Request-Id", "Accept", "Origin"],

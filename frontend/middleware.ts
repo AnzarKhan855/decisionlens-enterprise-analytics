@@ -18,6 +18,16 @@ const PUBLIC_PATHS = [
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  // Canonical production host redirect: if user lands on a hashed deployment URL (e.g., decisionlens-enterprise-analytics-e8wz7i8ks.vercel.app)
+  // in production, permanently redirect to canonical https://decisionlens-enterprise-analytics.vercel.app
+  const host = request.headers.get("host") || "";
+  const isVercelDeploymentHash = /^decisionlens-enterprise-analytics-[a-z0-9]+(-[a-z0-9]+)*\.vercel\.app$/i.test(host);
+  const isPreview = process.env.VERCEL_ENV === "preview" || process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
+
+  if (!isPreview && isVercelDeploymentHash && host.toLowerCase() !== "decisionlens-enterprise-analytics.vercel.app") {
+    const canonicalUrl = new URL(pathname + (search || ""), "https://decisionlens-enterprise-analytics.vercel.app");
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
 
   // Allow next.js internal assets, static files, and APIs
   if (

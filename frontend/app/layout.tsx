@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://decisionlens-enterprise-analytics.vercel.app"),
+  alternates: {
+    canonical: "/",
+  },
   title: "DecisionLens | Enterprise Decision Intelligence",
   description: "AI-powered enterprise analytics platform transforming business data into actionable insights.",
   keywords: [
