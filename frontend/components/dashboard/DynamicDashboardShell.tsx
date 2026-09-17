@@ -221,6 +221,12 @@ export default function DynamicDashboardShell() {
     (async () => {
       await doLoad();
     })();
+
+    const handleWsChange = () => {
+      doLoad();
+    };
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+
     let intervalId: ReturnType<typeof setInterval> | null = null;
     async function pollStatus() {
       try {
@@ -240,7 +246,10 @@ export default function DynamicDashboardShell() {
     }
     pollStatus();
     intervalId = setInterval(pollStatus, 2000);
-    return () => { if (intervalId) clearInterval(intervalId); };
+    return () => {
+      window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [doLoad]);
 
   const handleRetry = useCallback(() => {

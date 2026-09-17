@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useId } from "react";
 
 interface SwitchProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "type"> {
   label?: string;
@@ -18,11 +18,12 @@ export default function Switch({
   id,
   ...props
 }: SwitchProps) {
+  const generatedId = useId();
   const [internalChecked, setInternalChecked] = useState(false);
   const isControlled = controlledChecked !== undefined;
   const checked = isControlled ? controlledChecked : internalChecked;
 
-  const switchId = id || `switch-${label?.replace(/\s+/g, "-").toLowerCase() || Math.random().toString(36).slice(2)}`;
+  const switchId = id || `switch-${label?.replace(/\s+/g, "-").toLowerCase() || generatedId}`;
   const descriptionId = `${switchId}-description`;
 
   const handleChange = useCallback(

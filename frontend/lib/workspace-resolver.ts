@@ -54,10 +54,6 @@ export async function resolveActiveWorkspace(): Promise<Workspace | null> {
       } catch (err) {
         console.warn("[WorkspaceResolver] Activation failed for stored workspace", storedId, err);
       }
-      localStorage.removeItem("decisionlens_active_workspace");
-      localStorage.removeItem("decisionlens_user_workspace");
-      invalidateCache();
-      return null;
     }
 
     const res = await getCached<any>("/workspace/active", undefined, 0).catch((err) => {
@@ -75,11 +71,12 @@ export async function resolveActiveWorkspace(): Promise<Workspace | null> {
       console.warn("[WorkspaceResolver] getCached /workspaces failed", err);
       return null;
     });
+    if (listRes && Array.isArray(listRes.workspaces) && listRes.workspaces.length > 0) {
       const matched =
         listRes.workspaces.find((w: any) => w.workspace_id === storedId) ||
         listRes.workspaces.find((w: any) => w.is_active) ||
         listRes.workspaces.find((w: any) => w.workspace_id === listRes.active_workspace_id) ||
-        (listRes.workspaces.length > 0 ? listRes.workspaces[0] : null);
+        listRes.workspaces[0];
       if (matched) {
         try {
           const actRes = await apiPost<{ success: boolean; workspace?: Workspace }>(
@@ -93,16 +90,36 @@ export async function resolveActiveWorkspace(): Promise<Workspace | null> {
         } catch (err) {
           console.warn("[WorkspaceResolver] Activation failed", err);
         }
+        localStorage.setItem("decisionlens_active_workspace", matched.workspace_id);
+        localStorage.setItem("decisionlens_user_workspace", matched.workspace_id);
+        return matched;
       }
+    }
 
-    localStorage.removeItem("decisionlens_active_workspace");
-    localStorage.removeItem("decisionlens_user_workspace");
-    invalidateCache();
+    // Only clear if server explicitly returned an empty workspaces array
+    if (listRes && Array.isArray(listRes.workspaces) && listRes.workspaces.length === 0) {
+      localStorage.removeItem("decisionlens_active_workspace");
+      localStorage.removeItem("decisionlens_user_workspace");
+      invalidateCache();
+      return null;
+    }
+
+    // If server was unreachable / timed out and storedId exists, preserve it as a fallback
+    if (storedId) {
+      return {
+        workspace_id: storedId,
+        name: "Active Workspace",
+      };
+    }
+
     return null;
   } catch (err) {
-    localStorage.removeItem("decisionlens_active_workspace");
-    localStorage.removeItem("decisionlens_user_workspace");
-    invalidateCache();
+    if (storedId) {
+      return {
+        workspace_id: storedId,
+        name: "Active Workspace",
+      };
+    }
     return null;
   }
 }

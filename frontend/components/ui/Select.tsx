@@ -67,18 +67,13 @@ export default function Select({
     }
   }, [isOpen, searchable]);
 
-  useEffect(() => {
-    if (isOpen) {
-      const idx = filteredOptions.findIndex((opt) => opt.value === value);
-      setHighlightedIndex(idx >= 0 ? idx : 0);
-    } else {
-      setHighlightedIndex(-1);
-    }
-  }, [isOpen, filteredOptions, value]);
+  const selectedIndex = filteredOptions.findIndex((opt) => opt.value === value);
+  const activeHighlightedIndex = highlightedIndex >= 0 ? highlightedIndex : Math.max(0, selectedIndex);
 
   const handleSelect = (optionValue: string) => {
     onChange?.(optionValue);
     setIsOpen(false);
+    setHighlightedIndex(-1);
     setSearch("");
     buttonRef.current?.focus();
   };
@@ -97,18 +92,18 @@ export default function Select({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
-        setHighlightedIndex((prev) => (filteredOptions.length > 0 ? (prev + 1) % filteredOptions.length : -1));
+        setHighlightedIndex(filteredOptions.length > 0 ? (activeHighlightedIndex + 1) % filteredOptions.length : -1);
         break;
       case "ArrowUp":
         e.preventDefault();
-        setHighlightedIndex((prev) => (filteredOptions.length > 0 ? (prev - 1 + filteredOptions.length) % filteredOptions.length : -1));
+        setHighlightedIndex(filteredOptions.length > 0 ? (activeHighlightedIndex - 1 + filteredOptions.length) % filteredOptions.length : -1);
         break;
       case "Enter":
       case " ":
         if (!searchable || e.target !== inputRef.current) {
           e.preventDefault();
-          if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
-            const opt = filteredOptions[highlightedIndex];
+          if (activeHighlightedIndex >= 0 && activeHighlightedIndex < filteredOptions.length) {
+            const opt = filteredOptions[activeHighlightedIndex];
             if (!opt.disabled) {
               handleSelect(opt.value);
             }
@@ -188,7 +183,7 @@ export default function Select({
               ) : (
                 filteredOptions.map((option, index) => {
                   const isSelected = option.value === value;
-                  const isHighlighted = highlightedIndex === index;
+                  const isHighlighted = activeHighlightedIndex === index;
                   return (
                     <button
                       key={option.value}

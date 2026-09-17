@@ -55,7 +55,7 @@ api.interceptors.request.use(
           config.headers["Authorization"] = `Bearer ${token.trim()}`;
         }
       }
-      let activeWs = localStorage.getItem("decisionlens_active_workspace");
+      const activeWs = localStorage.getItem("decisionlens_active_workspace");
       if (activeWs && config.headers) {
         if (typeof config.headers.set === "function") {
           if (!config.headers.get("X-Workspace-Id")) {

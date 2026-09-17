@@ -193,15 +193,22 @@ export default function ForecastsPage() {
 
   useEffect(() => {
     loadForecast();
+    const handleWsChange = () => {
+      loadForecast();
+    };
+    window.addEventListener("decisionlens:workspace_changed", handleWsChange);
+    return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
   async function loadForecast() {
     setLoading(true);
     setError(null);
     try {
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+      const universalUrl = storedId ? `/analytics/universal/${storedId}` : "/analytics/universal";
       const [resUniversal, resDetection] = await Promise.all([
-        api.get("/analytics/universal"),
-        api.get("/ml/forecast/detection").catch(() => ({ data: null })),
+        api.get(universalUrl),
+        api.get("/ml/forecast/detection", { params: storedId ? { workspace_id: storedId } : {} }).catch(() => ({ data: null })),
       ]);
       if (resUniversal.data) {
         setAnalytics(resUniversal.data);

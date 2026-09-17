@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "@/lib/api";
 import { useToast } from "@/lib/toast";
+import { activateAndSyncWorkspace } from "@/lib/workspace-resolver";
 import {
   FolderArchive,
   Plus,
@@ -363,10 +364,7 @@ export default function WorkspacesPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-foreground/10">
                   <button
                     onClick={async () => {
-                      if (typeof window !== "undefined") {
-                        localStorage.setItem("decisionlens_active_workspace", ws.workspace_id);
-                        window.dispatchEvent(new CustomEvent("decisionlens:workspace_changed", { detail: { workspace_id: ws.workspace_id } }));
-                      }
+                      activateAndSyncWorkspace({ workspace_id: ws.workspace_id });
                       await api.post(`/workspaces/${ws.workspace_id}/activate`).catch(() => null);
                       window.location.href = "/dynamic-dashboard";
                     }}
