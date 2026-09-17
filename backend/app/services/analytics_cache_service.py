@@ -1,6 +1,5 @@
-from __future__ import annotations
-
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 from app.logging.logger import get_logger
 
@@ -15,13 +14,10 @@ class AnalyticsCacheService:
       - analytics_cache: stores full AnalyticsResult per workspace
       - workspace_summary: stores lightweight workspace metadata
       - dataset_statistics: stores dataset-level statistics
-
-    Cache keys:
-      - analytics_cache: { "workspace_id": <workspace_id> }
-      - workspace_summary: { "workspace_id": <workspace_id> }
-      - dataset_statistics: { "workspace_id": <workspace_id>, "dataset_id": <dataset_id> }
+      - scenario_simulations: stores cached scenario levers
     """
     _memory_cache: Dict[str, Tuple[str, float, Dict[str, Any]]] = {}
+    _levers_cache: Dict[str, Tuple[str, float, Dict[str, Any]]] = {}
 
     @classmethod
     def get_cached(cls, workspace_id: str, path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
@@ -101,10 +97,84 @@ class AnalyticsCacheService:
             logger.warning("[AnalyticsCache] Set failed for %s: %s", workspace_id, e)
 
     @classmethod
+    def get_cached_levers(cls, workspace_id: str, path: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+        if not workspace_id:
+            return None
+        path_key = ""
+        mtime = 0.0
+        if path and path.exists():
+            try:
+                path_key = str(path.resolve())
+                mtime = path.stat().st_mtime
+            except Exception:
+                pass
+
+        if workspace_id in cls._levers_cache:
+            mem_path, mem_mtime, mem_dict = cls._levers_cache[workspace_id]
+            if path_key:
+                if mem_path == path_key and abs(mem_mtime - mtime) < 1e-4:
+                    return mem_dict
+            else:
+                return mem_dict
+
+        try:
+            from app.database.mongodb import scenario_simulations as mongo_scenario
+            doc = mongo_scenario.find_one({"workspace_id": workspace_id, "type": "cached_levers"})
+            if doc and doc.get("levers_data"):
+                doc_path = doc.get("parquet_path", "")
+                doc_mtime = doc.get("parquet_mtime", 0.0)
+                if path_key:
+                    if doc_path == path_key and abs(doc_mtime - mtime) < 1e-4:
+                        data = doc.get("levers_data")
+                        cls._levers_cache[workspace_id] = (doc_path, doc_mtime, data)
+                        return data
+                else:
+                    data = doc.get("levers_data")
+                    cls._levers_cache[workspace_id] = (doc_path, doc_mtime, data)
+                    return data
+        except Exception as e:
+            logger.debug("[AnalyticsCache] Get levers failed for %s: %s", workspace_id, e)
+        return None
+
+    @classmethod
+    def set_cached_levers(cls, workspace_id: str, levers_data: Dict[str, Any], path: Optional[Path] = None) -> None:
+        if not workspace_id or not levers_data:
+            return
+        path_key = ""
+        mtime = 0.0
+        if path and path.exists():
+            try:
+                path_key = str(path.resolve())
+                mtime = path.stat().st_mtime
+            except Exception:
+                pass
+
+        cls._levers_cache[workspace_id] = (path_key, mtime, levers_data)
+        try:
+            from app.database.mongodb import scenario_simulations as mongo_scenario
+            mongo_scenario.update_one(
+                {"workspace_id": workspace_id, "type": "cached_levers"},
+                {
+                    "$set": {
+                        "workspace_id": workspace_id,
+                        "type": "cached_levers",
+                        "parquet_path": path_key,
+                        "parquet_mtime": mtime,
+                        "levers_data": levers_data,
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                },
+                upsert=True,
+            )
+        except Exception as e:
+            logger.warning("[AnalyticsCache] Set levers failed for %s: %s", workspace_id, e)
+
+    @classmethod
     def invalidate(cls, workspace_id: str) -> None:
         if not workspace_id:
             return
         cls._memory_cache.pop(workspace_id, None)
+        cls._levers_cache.pop(workspace_id, None)
         try:
             from app.database.mongodb import (
                 analytics_cache as mongo_analytics_cache,
@@ -112,12 +182,14 @@ class AnalyticsCacheService:
                 reports as mongo_reports,
                 copilot_history as mongo_copilot_history,
                 kpi_history as mongo_kpi_history,
+                scenario_simulations as mongo_scenario,
             )
             mongo_analytics_cache.delete_many({"workspace_id": workspace_id})
             mongo_forecast_cache.delete_many({"dataset_id": workspace_id})
             mongo_reports.delete_many({"dataset_id": workspace_id})
             mongo_copilot_history.delete_many({"workspace_id": workspace_id})
             mongo_kpi_history.delete_many({"dataset_id": workspace_id})
+            mongo_scenario.delete_many({"workspace_id": workspace_id, "type": "cached_levers"})
 
             from app.cache.memory_cache import TTLCache
             dashboard_cache = TTLCache.get_instance("dashboard_cache")
@@ -128,6 +200,36 @@ class AnalyticsCacheService:
             logger.info("[AnalyticsCache] Invalidated all caches for workspace %s", workspace_id)
         except Exception as e:
             logger.warning("[AnalyticsCache] Invalidate failed for %s: %s", workspace_id, e)
+
+    @classmethod
+    def clear_all(cls) -> None:
+        cls._memory_cache.clear()
+        cls._summary_cache.clear()
+        cls._levers_cache.clear()
+        try:
+            from app.database.mongodb import (
+                analytics_cache as mongo_analytics_cache,
+                forecast_cache as mongo_forecast_cache,
+                reports as mongo_reports,
+                copilot_history as mongo_copilot_history,
+                kpi_history as mongo_kpi_history,
+                scenario_simulations as mongo_scenario,
+            )
+            mongo_analytics_cache.delete_many({})
+            mongo_forecast_cache.delete_many({})
+            mongo_reports.delete_many({})
+            mongo_copilot_history.delete_many({})
+            mongo_kpi_history.delete_many({})
+            mongo_scenario.delete_many({"type": "cached_levers"})
+
+            from app.cache.memory_cache import TTLCache
+            dashboard_cache = TTLCache.get_instance("dashboard_cache")
+            dashboard_cache.clear()
+            query_cache = TTLCache.get_instance("query_result")
+            query_cache.clear()
+            logger.info("[AnalyticsCache] Cleared all global caches.")
+        except Exception as e:
+            logger.warning("[AnalyticsCache] Clear all failed: %s", e)
 
     @classmethod
     def get_workspace_summary(cls, workspace_id: str) -> Optional[Dict[str, Any]]:

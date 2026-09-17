@@ -182,6 +182,45 @@ def get_analytics_kpis():
         return {"kpis": []}
 
 
+@router.get("/strategic-decisions")
+def get_strategic_decisions(
+    dataset_id: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None),
+):
+    try:
+        from app.services.enterprise_strategy_engine import EnterpriseStrategyEngine
+        target_ws = workspace_id or dataset_id or EnterpriseWorkspaceManager.get_active_workspace_id()
+        if not target_ws:
+            return {"decisions": [], "ceo_health_scorecard": None}
+        report = EnterpriseStrategyEngine.analyze(target_ws)
+        recs = report.get("recommendations", [])
+        mapped_decisions = []
+        for i, r in enumerate(recs):
+            mapped_decisions.append({
+                "id": r.get("id", f"DEC-{i+1:03d}"),
+                "title": r.get("title", ""),
+                "category": r.get("category", "Executive Strategy"),
+                "priority": r.get("priority", "HIGH"),
+                "reason": r.get("reason", ""),
+                "action": r.get("action", ""),
+                "expected_impact": r.get("expected_impact", "Performance Improvement"),
+                "estimated_roi": r.get("estimated_roi", "Positive ROI"),
+                "confidence": r.get("confidence", 85.0),
+                "risk_level": r.get("risk_level", "LOW"),
+            })
+        return {
+            "decisions": mapped_decisions,
+            "ceo_health_scorecard": {
+                "overall_health": report.get("confidence_score", 85.0),
+                "strategic_priorities": len(mapped_decisions),
+                "domain": report.get("domain", "Enterprise"),
+            },
+        }
+    except Exception as exc:
+        logger.error("[Strategic Decisions API] %s", exc)
+        return {"decisions": [], "ceo_health_scorecard": None}
+
+
 dashboard_router = APIRouter(tags=["Dynamic Dashboard"])
 
 

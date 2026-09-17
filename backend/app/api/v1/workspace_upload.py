@@ -11,7 +11,13 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.rbac import can_delete_workspace, get_current_user_from_token
+from app.core.rbac import (
+    can_delete_workspace,
+    get_current_user_from_token,
+    require_role,
+    SUPER_ADMIN,
+    ORGANIZATION_ADMIN,
+)
 from app.database.connection import SessionLocal
 from app.database.crud import delete_dataset_permanently, save_dataset
 from app.database.duckdb_engine import DuckDBEngine
@@ -807,12 +813,35 @@ def get_business_profile_endpoint(workspace_id: str):
     return profile
 
 
+@router.delete("/workspaces/all")
+@router.delete("/workspace/all")
+def delete_all_workspaces_endpoint(
+    user: dict = Depends(require_role([SUPER_ADMIN, ORGANIZATION_ADMIN]))
+):
+    """
+    Permanently deletes all workspaces and resets platform storage and caches.
+    Strictly restricted to SUPER_ADMIN and ORGANIZATION_ADMIN roles.
+    """
+    logger.info("[PERMANENT ALL WORKSPACES DELETION] Requested by admin user '%s' (role: '%s')", user.get("email"), user.get("role"))
+    from app.services.workspace_service import EnterpriseWorkspaceManager
+    res = EnterpriseWorkspaceManager.delete_all_workspaces()
+    _STRUCTURE_CACHE.clear()
+    return res
+
+
 @router.delete("/workspaces/{workspace_id}")
 @router.delete("/workspace/{workspace_id}")
 def delete_workspace(
     workspace_id: str,
     user: dict = Depends(get_current_user_from_token)
 ):
+    if workspace_id == "all":
+        from app.core.rbac import normalize_role
+        u_role = normalize_role(user.get("role"))
+        if u_role not in (SUPER_ADMIN, ORGANIZATION_ADMIN):
+            raise HTTPException(status_code=403, detail="Access Denied: Only Admins can delete all workspaces.")
+        return delete_all_workspaces_endpoint(user)
+
     can_delete_workspace(user, workspace_id)
 
     from app.services.workspace_service import EnterpriseWorkspaceManager

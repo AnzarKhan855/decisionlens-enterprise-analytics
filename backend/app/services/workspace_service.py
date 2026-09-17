@@ -119,8 +119,15 @@ class EnterpriseWorkspaceManager:
                                 "owner": doc.get("owner", "Enterprise Administrator"),
                                 "last_refresh": doc.get("last_refresh", "Just now"),
                                 "created_by": doc.get("created_by", ""),
+                                "is_active": doc.get("is_active", False),
                             }
+                            if doc.get("is_active") and not cls._active_workspace_id:
+                                cls._active_workspace_id = ws_id
                         else:
+                            if "is_active" in doc:
+                                cls._workspaces[ws_id]["is_active"] = doc.get("is_active", False)
+                                if doc.get("is_active") and not cls._active_workspace_id:
+                                    cls._active_workspace_id = ws_id
                             if not cls._workspaces[ws_id].get("tables") and doc.get("tables"):
                                 cls._workspaces[ws_id]["tables"] = doc["tables"]
             except Exception as mongo_err:
@@ -177,6 +184,8 @@ class EnterpriseWorkspaceManager:
                     key=lambda w: str(cls._workspaces[w].get("updated_at") or cls._workspaces[w].get("created_at") or "")
                 )
             cls._active_workspace_id = active_candidate
+            if active_candidate in cls._workspaces:
+                cls._workspaces[active_candidate]["is_active"] = True
             cls._save_active_workspace_id()
             return active_candidate
 
@@ -197,7 +206,18 @@ class EnterpriseWorkspaceManager:
             return False
 
         cls._active_workspace_id = workspace_id
+        for w_id in cls._workspaces:
+            cls._workspaces[w_id]["is_active"] = (w_id == workspace_id)
+        cls._save_workspaces()
         cls._save_active_workspace_id()
+
+        try:
+            from app.database.mongodb import workspaces as mongo_workspaces
+            mongo_workspaces.update_many({}, {"$set": {"is_active": False}})
+            mongo_workspaces.update_one({"workspace_id": workspace_id}, {"$set": {"is_active": True}})
+        except Exception as mongo_err:
+            logger.debug(f"[Workspace Warning] Mongo is_active sync failed: {mongo_err}")
+
         try:
             from app.semantic_model.engine import invalidate_semantic_model_cache
             invalidate_semantic_model_cache()
@@ -629,6 +649,79 @@ class EnterpriseWorkspaceManager:
                     pass
 
         return True
+
+    @classmethod
+    def delete_all_workspaces(cls) -> Dict[str, Any]:
+        """
+        Permanently deletes ALL workspaces across memory, SQLite database,
+        Parquet storage, MongoDB collections, DuckDB registrations, and query caches.
+        Only accessible by SUPER_ADMIN or ORGANIZATION_ADMIN.
+        """
+        all_ws = cls.get_all_workspaces()
+        workspace_ids = set([ws.get("workspace_id") for ws in all_ws if ws.get("workspace_id")])
+        workspace_ids.update(list(cls._workspaces.keys()))
+
+        try:
+            from app.database.mongodb import workspaces as mongo_workspaces
+            for doc in mongo_workspaces.find({}, {"workspace_id": 1}):
+                w_id = doc.get("workspace_id")
+                if w_id:
+                    workspace_ids.add(w_id)
+        except Exception:
+            pass
+
+        deleted_ids = []
+        for ws_id in list(workspace_ids):
+            try:
+                cls.delete_workspace(ws_id)
+                deleted_ids.append(ws_id)
+            except Exception as e:
+                logger.error("[DELETE ALL WORKSPACES] Error deleting '%s': %s", ws_id, e)
+
+        cls._workspaces.clear()
+        cls._deleted_workspaces.update(workspace_ids)
+        cls._save_deleted_set()
+        cls._active_workspace_id = None
+        cls._save_workspaces()
+
+        try:
+            ACTIVE_WORKSPACE_FILE.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        db = SessionLocal()
+        try:
+            from app.database.crud import delete_all_datasets
+            delete_all_datasets(db)
+        except Exception as e:
+            logger.error("[DELETE ALL WORKSPACES] SQLite purge error: %s", e)
+        finally:
+            db.close()
+
+        try:
+            from app.services.analytics_cache_service import AnalyticsCacheService
+            AnalyticsCacheService.clear_all()
+        except Exception:
+            pass
+
+        try:
+            from app.semantic_model.engine import invalidate_semantic_model_cache
+            invalidate_semantic_model_cache()
+        except Exception:
+            pass
+
+        try:
+            from app.cache.memory_cache import QueryResultCache
+            QueryResultCache.clear()
+        except Exception:
+            pass
+
+        return {
+            "status": "success",
+            "message": f"Successfully deleted {len(deleted_ids)} workspaces.",
+            "deleted_count": len(deleted_ids),
+            "deleted_workspaces": deleted_ids
+        }
 
     @classmethod
     def get_business_profile(cls, workspace_id: Optional[str] = None) -> Optional[Dict[str, Any]]:

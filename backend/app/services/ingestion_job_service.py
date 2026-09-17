@@ -432,6 +432,52 @@ class IngestionJobService:
             except Exception:
                 pass
 
+            # Precompute and warm Analytics, Strategy, and Scenario Levers caches
+            sm_for_warm = None
+            analytics_result_for_warm = None
+            try:
+                from app.analytics.universal_engine import UniversalAnalyticsEngine
+                from app.semantic_model.core import SemanticModel
+                sm_for_warm = SemanticModel(
+                    workspace_id=workspace_id,
+                    domain=getattr(intelligence_result, "domain", dataset_type),
+                    dataset_type=dataset_type,
+                )
+                raw_profile = {
+                    "total_rows": total_rows,
+                    "total_columns": total_cols,
+                    "column_categories": semantic_profile.get("column_categories", {}),
+                    "columns": semantic_profile.get("columns", {}),
+                }
+                analytics_result_for_warm = UniversalAnalyticsEngine.analyze(
+                    sm_for_warm,
+                    parquet_path=parquet_path,
+                    workspace_id=workspace_id,
+                    profile=raw_profile,
+                )
+                AnalyticsCacheService.set_cached(workspace_id, analytics_result_for_warm.to_dict(), parquet_path)
+            except Exception as warm_err:
+                logger.debug("[IngestionPipeline] Analytics warmup notice: %s", warm_err)
+
+            try:
+                from app.services.enterprise_strategy_engine import EnterpriseStrategyEngine
+                EnterpriseStrategyEngine.analyze(workspace_id)
+            except Exception as strat_err:
+                logger.debug("[IngestionPipeline] Strategy warmup notice: %s", strat_err)
+
+            try:
+                from app.services.scenario_lever_engine import ScenarioLeverEngine
+                lever_res = ScenarioLeverEngine.discover_levers(
+                    profile=semantic_profile,
+                    semantic_model=sm_for_warm,
+                    analytics_result=analytics_result_for_warm,
+                )
+                lever_res["dataset_id"] = workspace_id
+                lever_res["workspace_id"] = workspace_id
+                AnalyticsCacheService.set_cached_levers(workspace_id, lever_res, parquet_path)
+            except Exception as lever_err:
+                logger.debug("[IngestionPipeline] Lever warmup notice: %s", lever_err)
+
             timings["semantic_model_ms"] = round((time.perf_counter() - t0) * 1000, 2)
             total_duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
             timings["total_duration_ms"] = total_duration_ms

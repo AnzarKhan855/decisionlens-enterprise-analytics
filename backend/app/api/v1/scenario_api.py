@@ -165,6 +165,14 @@ def get_scenario_levers(dataset_id: Optional[str] = Query(None), workspace_id: O
             }
 
         ws_id = _get_workspace_id(db, dataset_id, target_ws)
+
+        from app.services.analytics_cache_service import AnalyticsCacheService
+        cached_levers = AnalyticsCacheService.get_cached_levers(ws_id, parquet_path)
+        if cached_levers:
+            cached_levers["dataset_id"] = target_ws or "latest"
+            cached_levers["workspace_id"] = ws_id
+            return cached_levers
+
         profile = _get_cached_profile(parquet_path)
         semantic_model = _build_semantic_model(ws_id)
         analytics_result = _build_analytics_result(parquet_path, ws_id)
@@ -176,6 +184,7 @@ def get_scenario_levers(dataset_id: Optional[str] = Query(None), workspace_id: O
         )
         result["dataset_id"] = target_ws or "latest"
         result["workspace_id"] = ws_id
+        AnalyticsCacheService.set_cached_levers(ws_id, result, parquet_path)
         return result
     except HTTPException:
         raise

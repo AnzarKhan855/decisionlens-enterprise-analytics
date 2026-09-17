@@ -262,7 +262,7 @@ export default function AICopilotPage() {
   const [sessions, setSessions] = useState<Session[]>([
     { id: "current", title: "Current Session", timestamp: new Date().toISOString(), pinned: true },
   ]);
-  const [sessionId] = useState(() => `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const [sessionId, setSessionId] = useState<string>(() => `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const [conversationHistory, setConversationHistory] = useState<LocalConversationTurn[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
   const [datasets, setDatasets] = useState<DatasetOption[]>([]);
@@ -289,6 +289,47 @@ export default function AICopilotPage() {
     window.addEventListener("decisionlens:workspace_changed", handleWsChange);
     return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
+
+  // Rehydrate copilot conversation from localStorage for active workspace
+  useEffect(() => {
+    if (!selectedWorkspaceId || typeof window === "undefined") return;
+    try {
+      const storageKey = `decisionlens_copilot_session_${selectedWorkspaceId}`;
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.messages && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+          setMessages(parsed.messages);
+          setConversationHistory(parsed.conversationHistory || []);
+          if (parsed.sessionId) setSessionId(parsed.sessionId);
+          if (parsed.activeResponse) setActiveResponse(parsed.activeResponse);
+        }
+      }
+    } catch (e) {
+      console.warn("[Copilot] Failed to load cached session:", e);
+    }
+  }, [selectedWorkspaceId]);
+
+  // Persist copilot conversation to localStorage for active workspace
+  useEffect(() => {
+    if (!selectedWorkspaceId || typeof window === "undefined") return;
+    try {
+      const storageKey = `decisionlens_copilot_session_${selectedWorkspaceId}`;
+      if (messages.length > 1 || (messages.length === 1 && messages[0].response?.intent !== "greeting")) {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            sessionId,
+            messages,
+            conversationHistory,
+            activeResponse,
+          })
+        );
+      }
+    } catch (e) {
+      console.warn("[Copilot] Failed to save session to localStorage:", e);
+    }
+  }, [selectedWorkspaceId, sessionId, messages, conversationHistory, activeResponse]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -386,6 +427,15 @@ export default function AICopilotPage() {
   );
 
   const handleReset = () => {
+    const newSessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setSessionId(newSessionId);
+    if (selectedWorkspaceId && typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(`decisionlens_copilot_session_${selectedWorkspaceId}`);
+      } catch (e) {
+        console.warn("[Copilot] Failed to clear cached session:", e);
+      }
+    }
     resetCopilotSession();
     setMessages([
       {
@@ -561,6 +611,14 @@ export default function AICopilotPage() {
                 ))}
               </select>
             </div>
+            <button
+              onClick={handleReset}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-border-color text-text-secondary hover:bg-surface-muted transition flex items-center gap-1"
+              title="Start a new chat session"
+            >
+              <RefreshCw className="w-3.5 h-3.5 inline" />
+              <span>New Chat</span>
+            </button>
             <button
               onClick={() => setShowEvidencePanel(!showEvidencePanel)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all ${

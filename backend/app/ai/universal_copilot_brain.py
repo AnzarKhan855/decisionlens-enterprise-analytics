@@ -524,6 +524,39 @@ class UniversalAIBrain:
                 f"5. WHAT SHOULD WE DO: Investigate underperforming segments for optimization while reinforcing leaders."
             )
 
+        elif intent == "breakdown" and evidence_rows:
+            measure_name = analytics_dict.get("evidence", {}).get("measures_analyzed", ["metric"])[0].replace("_", " ") if analytics_dict.get("evidence", {}).get("measures_analyzed") else "metric"
+            total_val = sum((r.get("value") or r.get("metric_value") or 0) for r in evidence_rows)
+            breakdown_parts = []
+            for r in evidence_rows[:5]:
+                cat = r.get("category") or r.get("dimension") or "Unknown"
+                val = r.get("value") or r.get("metric_value") or 0
+                pct = (val / total_val * 100) if total_val > 0 else 0
+                breakdown_parts.append(f"'{cat}': {val:,.2f} ({pct:.1f}%)")
+            breakdown_summary = "; ".join(breakdown_parts)
+            top_cat = (evidence_rows[0].get("category") or evidence_rows[0].get("dimension") or "top category")
+            return (
+                f"1. EXECUTIVE ANSWER: Breakdown of {measure_name} across {len(evidence_rows)} segments shows '{top_cat}' as the largest share. Details: {breakdown_summary}.\n\n"
+                f"2. WHAT HAPPENED: Distribution analysis computed for {len(evidence_rows)} categories with total {measure_name} of {total_val:,.2f}.\n\n"
+                f"3. WHY: Segment concentration reveals how different categories contribute to aggregate {measure_name}.\n\n"
+                f"4. WHAT HAPPENS NEXT: Category proportions are expected to remain consistent barring strategic intervention.\n\n"
+                f"5. WHAT SHOULD WE DO: Diversify exposure if top category dominates over 40% of aggregate volume."
+            )
+
+        elif intent == "percentage" and evidence_rows:
+            measure_name = analytics_dict.get("evidence", {}).get("measures_analyzed", ["metric"])[0].replace("_", " ") if analytics_dict.get("evidence", {}).get("measures_analyzed") else "metric"
+            top_row = evidence_rows[0]
+            cat = top_row.get("category") or top_row.get("dimension") or "primary segment"
+            pct = top_row.get("percentage") or 0
+            val = top_row.get("metric_value") or top_row.get("value") or 0
+            return (
+                f"1. EXECUTIVE ANSWER: '{cat}' represents {pct:.1f}% of total {measure_name} ({val:,.2f}).\n\n"
+                f"2. WHAT HAPPENED: Share analysis across {len(evidence_rows)} categories identifies '{cat}' as the leading contributor at {pct:.1f}%.\n\n"
+                f"3. WHY: Computed via SQL window function aggregate relative to overall total.\n\n"
+                f"4. WHAT HAPPENS NEXT: Segment concentration trajectory depends on growth rates of secondary segments.\n\n"
+                f"5. WHAT SHOULD WE DO: Monitor concentration risk if '{cat}' exceeds risk tolerance thresholds."
+            )
+
         elif intent == "risk":
             risk_titles = [r.get("title", "") for r in (risks or [])[:3] if isinstance(r, dict)]
             risk_text = "; ".join(risk_titles) if risk_titles else "No significant risks identified."
@@ -1404,9 +1437,22 @@ class UniversalAIBrain:
         safe_temporal = [t for t in temporal if re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", t)]
 
         q_lower = (question or "").lower()
-        matched_m = next((col for col in safe_measures if col.lower() in q_lower or col.lower().replace("_", " ") in q_lower), None)
-        matched_d = next((col for col in safe_dims if col.lower() in q_lower or col.lower().replace("_", " ") in q_lower), None)
-        matched_t = next((col for col in safe_temporal if col.lower() in q_lower or col.lower().replace("_", " ") in q_lower), None)
+
+        def _match_col(candidates: List[str], text: str) -> Optional[str]:
+            for col in candidates:
+                c_clean = col.lower().replace("_", " ")
+                if c_clean in text or col.lower() in text:
+                    return col
+            tokens = set(re.findall(r"\b[a-zA-Z]{3,}\b", text))
+            for col in candidates:
+                c_parts = set(col.lower().split("_"))
+                if tokens & c_parts:
+                    return col
+            return None
+
+        matched_m = _match_col(safe_measures, q_lower)
+        matched_d = _match_col(safe_dims, q_lower)
+        matched_t = _match_col(safe_temporal, q_lower)
 
         m = matched_m or (safe_measures[0] if safe_measures else None)
         t = matched_t or (safe_temporal[0] if safe_temporal else None)
@@ -1473,7 +1519,7 @@ class UniversalAIBrain:
             except Exception as exc:
                 return sql, [parquet_path.name], [d, m], [], str(exc)
 
-        if intent == "trend" and m and t:
+        if intent in ("trend",) and m and t:
             sql = (
                 f"SELECT STRFTIME(TRY_CAST({esc(t)} AS TIMESTAMP), '%Y-%m') AS period, SUM({esc(m)}) AS metric_value "
                 f"FROM read_parquet('{path_str}') "
@@ -1484,6 +1530,18 @@ class UniversalAIBrain:
                 return sql, [parquet_path.name], [t, m], rows, None
             except Exception as exc:
                 return sql, [parquet_path.name], [t, m], [], str(exc)
+
+        if intent in ("trend",) and m and safe_dims:
+            sql = (
+                f"SELECT CAST({esc(d)} AS VARCHAR) AS period, SUM({esc(m)}) AS metric_value "
+                f"FROM read_parquet('{path_str}') "
+                f"WHERE {esc(d)} IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 15"
+            )
+            try:
+                rows = DuckDBEngine.query(sql)
+                return sql, [parquet_path.name], [d, m], rows, None
+            except Exception as exc:
+                return sql, [parquet_path.name], [d, m], [], str(exc)
 
         if intent == "breakdown" and m and safe_dims:
             sql = (
@@ -1497,7 +1555,7 @@ class UniversalAIBrain:
             except Exception as exc:
                 return sql, [parquet_path.name], [d, m], [], str(exc)
 
-        if intent == "summary" and m:
+        if intent in ("summary", "summarize") and m:
             sql = (
                 f"SELECT COUNT(*) AS total_records, SUM({esc(m)}) AS total_metric, AVG({esc(m)}) AS avg_metric, "
                 f"MIN({esc(m)}) AS min_metric, MAX({esc(m)}) AS max_metric "
@@ -1538,7 +1596,7 @@ class UniversalAIBrain:
                 except Exception as exc:
                     return sql, [parquet_path.name], [m], [], str(exc)
 
-        if intent == "comparison" and m and safe_dims:
+        if intent in ("comparison", "compare") and m and safe_dims:
             sql = (
                 f"SELECT CAST({esc(d)} AS VARCHAR) AS category, SUM({esc(m)}) AS metric_value, COUNT(*) AS cnt "
                 f"FROM read_parquet('{path_str}') "
@@ -1564,7 +1622,7 @@ class UniversalAIBrain:
             except Exception as exc:
                 return sql, [parquet_path.name], [d, m], [], str(exc)
 
-        if intent == "forecast" and m and t:
+        if intent in ("forecast", "predict") and m and t:
             sql = (
                 f"SELECT STRFTIME(TRY_CAST({esc(t)} AS TIMESTAMP), '%Y-%m') AS period, SUM({esc(m)}) AS metric_value "
                 f"FROM read_parquet('{path_str}') "

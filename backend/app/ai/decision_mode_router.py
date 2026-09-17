@@ -26,6 +26,31 @@ class DecisionModeRouter:
     """
 
     MODE_PATTERNS = {
+        "top_n": [
+            r"top\s+\d+", r"top\s+\w+", r"highest", r"best", r"largest", r"most\s+\w+",
+            r"leading", r"number\s+one", r"number\s+1", r"rank", r"ranking",
+            r"top\s+products?", r"top\s+customers?", r"top\s+categories?", r"top\s+performers?",
+            r"best\s+selling", r"highest\s+grossing", r"best\s+performing", r"leaders?\b"
+        ],
+        "trend": [
+            r"trend", r"over\s+time", r"monthly", r"quarterly", r"yearly", r"daily",
+            r"growth", r"decline", r"changed\s+over", r"how\s+has", r"trajectory",
+            r"sales\s+trend", r"revenue\s+trend", r"performance\s+trend", r"history\b",
+            r"over\s+the\s+last", r"over\s+past"
+        ],
+        "breakdown": [
+            r"breakdown", r"by\s+\w+", r"distribution", r"split", r"categor", r"grouped\s+by",
+            r"across\s+\w+", r"per\s+\w+", r"by\s+region", r"by\s+country", r"by\s+state",
+            r"by\s+category", r"by\s+segment", r"by\s+product", r"by\s+store"
+        ],
+        "percentage": [
+            r"percentage", r"percent", r"share", r"portion", r"proportion", r"what\s+portion",
+            r"what\s+percent", r"%\s*"
+        ],
+        "anomaly": [
+            r"anomaly", r"anomalies", r"outlier", r"outliers", r"spike", r"drop", r"unusual",
+            r"detect", r"irregular", r"unexpected", r"sudden", r"abnormal"
+        ],
         "explain": [
             r"explain\s+this\s+(chart|graph|visualization|dashboard|report|prediction|recommendation)",
             r"what\s+does\s+this\s+(chart|graph|visualization|dashboard|report|prediction|recommendation)\s+show",
@@ -263,6 +288,11 @@ class DecisionModeRouter:
     @classmethod
     def get_mode_description(cls, mode: str) -> str:
         descriptions = {
+            "top_n": "Identify top-performing entities, products, customers, or categories",
+            "trend": "Analyze chronological trends and trajectory over time",
+            "breakdown": "Analyze distribution and breakdown across dimensions",
+            "percentage": "Calculate percentage share and contribution",
+            "anomaly": "Detect anomalies, outliers, and variance spikes",
             "explain": "Explain a visualization, report, or finding",
             "compare": "Compare entities, segments, or time periods",
             "predict": "Forecast future values or trends",

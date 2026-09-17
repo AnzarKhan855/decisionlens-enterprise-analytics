@@ -61,6 +61,9 @@ export default function WorkspacesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<BusinessWorkspace | null>(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllInput, setDeleteAllInput] = useState("");
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -109,6 +112,48 @@ export default function WorkspacesPage() {
       }
     } finally {
       setDeleteTarget(null);
+    }
+  }
+
+  async function confirmDeleteAllWorkspaces() {
+    if (deleteAllInput.trim() !== "DELETE ALL WORKSPACES") return;
+    try {
+      setIsDeletingAll(true);
+      const res = await api.delete("/workspaces/all");
+      setWorkspaces([]);
+      localStorage.removeItem("decisionlens_active_workspace");
+      localStorage.removeItem("decisionlens_user_workspace");
+      addToast({
+        type: "success",
+        title: "All Workspaces Deleted",
+        description: res.data?.message || "All workspaces and associated data have been permanently removed.",
+      });
+      setShowDeleteAllModal(false);
+      setDeleteAllInput("");
+      await loadWorkspaces();
+    } catch (err: unknown) {
+      if (err && typeof err === "object" && "response" in err) {
+        const axiosError = err as { response?: { status?: number; data?: { detail?: string } } };
+        if (axiosError.response?.status === 401) {
+          addToast({ type: "error", title: "Session expired", description: "Please sign in again to delete workspaces." });
+        } else if (axiosError.response?.status === 403) {
+          addToast({
+            type: "error",
+            title: "Permission Denied",
+            description: axiosError.response?.data?.detail || "Only SUPER_ADMIN or ORGANIZATION_ADMIN can delete all workspaces.",
+          });
+        } else {
+          addToast({
+            type: "error",
+            title: "Delete All Failed",
+            description: axiosError.response?.data?.detail || "Failed to delete all workspaces. Please try again.",
+          });
+        }
+      } else {
+        addToast({ type: "error", title: "Delete All Failed", description: "Failed to delete all workspaces. Please try again." });
+      }
+    } finally {
+      setIsDeletingAll(false);
     }
   }
 
@@ -182,6 +227,19 @@ export default function WorkspacesPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {workspaces.length > 0 && (
+            <button
+              onClick={() => {
+                setDeleteAllInput("");
+                setShowDeleteAllModal(true);
+              }}
+              className="px-3.5 py-2.5 bg-error-500/10 hover:bg-error-500/20 text-error-400 border border-error-500/30 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+              aria-label="Delete all workspaces"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete All Workspaces</span>
+            </button>
+          )}
           <Link
             href="/upload"
             className="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-2"
@@ -452,8 +510,86 @@ export default function WorkspacesPage() {
             </div>
           </motion.div>
         </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      {/* Delete All Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteAllModal && (
+          <motion.div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete all workspaces confirmation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="premium-card max-w-lg w-full p-6 space-y-5 border-error-500/30"
+            >
+              <div className="flex items-center gap-3 text-error-600 border-b border-border-light pb-3">
+                <div className="p-3 bg-error-100 rounded-2xl">
+                  <AlertTriangle className="w-6 h-6 text-error-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-text-primary">Delete All Workspaces?</h3>
+                  <span className="text-xs text-error-500 font-semibold">High-Risk Administrative Action</span>
+                </div>
+              </div>
+
+              <div className="text-xs text-text-secondary leading-relaxed space-y-2">
+                <p>
+                  This action will <strong>permanently purge all {workspaces.length} workspaces</strong>, Parquet datasets, database records, scenario simulations, AI caches, and reports.
+                </p>
+                <p className="text-error-400 font-medium">
+                  This action cannot be undone. You must have SUPER_ADMIN or ORGANIZATION_ADMIN privileges.
+                </p>
+                <div className="pt-2">
+                  <label className="block text-xs font-semibold text-text-primary mb-1">
+                    Type <code className="px-1.5 py-0.5 bg-surface-muted rounded text-error-400 font-mono">DELETE ALL WORKSPACES</code> to confirm:
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteAllInput}
+                    onChange={(e) => setDeleteAllInput(e.target.value)}
+                    placeholder="DELETE ALL WORKSPACES"
+                    className="w-full px-3.5 py-2.5 bg-surface-muted border border-border-color focus:border-error-500 rounded-xl text-xs text-text-primary font-mono outline-none"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-light">
+                <button
+                  type="button"
+                  disabled={isDeletingAll}
+                  onClick={() => {
+                    setShowDeleteAllModal(false);
+                    setDeleteAllInput("");
+                  }}
+                  className="px-4 py-2 bg-surface-muted hover:bg-border-color text-text-secondary text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteAllInput.trim() !== "DELETE ALL WORKSPACES" || isDeletingAll}
+                  onClick={confirmDeleteAllWorkspaces}
+                  className="px-5 py-2 bg-error-600 hover:bg-error-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isDeletingAll ? "Deleting All..." : "Delete Everything"}</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

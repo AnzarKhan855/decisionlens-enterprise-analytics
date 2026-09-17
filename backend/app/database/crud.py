@@ -139,6 +139,16 @@ def delete_dataset_permanently(db: Session, identifier: str, file_paths: Optiona
     return deleted_count
 
 
+def delete_all_datasets(db: Session) -> int:
+    """
+    Permanently deletes all dataset records from SQLite database.
+    Returns the count of deleted DB records.
+    """
+    deleted_count = db.query(Dataset).delete(synchronize_session=False)
+    db.commit()
+    return deleted_count
+
+
 def create_otp_token(db: Session, email: str, hashed_otp: str, expiry_seconds: int = 300) -> OTPToken:
     expiry = datetime.now(UTC) + timedelta(seconds=expiry_seconds)
     token = OTPToken(email=email.lower(), hashed_otp=hashed_otp, expiry=expiry, attempts=0)

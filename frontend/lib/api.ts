@@ -82,16 +82,36 @@ api.interceptors.request.use(
   }
 );
 
+export type ErrorCategory =
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
+  | "AUTH_ERROR"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "DATASET_PROCESSING"
+  | "SERVER_ERROR"
+  | "CLIENT_ERROR"
+  | "UNKNOWN_ERROR";
+
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    if (error.code === "ECONNABORTED") {
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail || error.response?.data?.message || "";
+    const detailLower = typeof detail === "string" ? detail.toLowerCase() : "";
+
+    if (error.code === "ECONNABORTED" || (error.message && error.message.toLowerCase().includes("timeout"))) {
+      error.errorCategory = "TIMEOUT" as ErrorCategory;
+      error.userFriendlyMessage = "The request timed out while waiting for the server to process data.";
       error.message = "The request timed out. Please check your network connection and try again.";
     } else if (!error.response) {
+      error.errorCategory = "NETWORK_ERROR" as ErrorCategory;
+      error.userFriendlyMessage = "Unable to connect to the DecisionLens API. Please verify network connectivity.";
       error.message = "Unable to connect to the server. Please ensure the backend is running.";
-    } else if (error.response.status === 401) {
+    } else if (status === 401) {
+      error.errorCategory = "AUTH_ERROR" as ErrorCategory;
       const reqUrl = error.config?.url || "";
       const isAuthEndpoint = reqUrl.includes("/auth/login") || reqUrl.includes("/auth/register") || reqUrl.includes("/auth/forgot-password") || reqUrl.includes("/auth/reset-password") || reqUrl.includes("/auth/verify-otp");
 
@@ -112,10 +132,26 @@ api.interceptors.response.use(
       } else {
         error.message = "Session expired. Please sign in again.";
       }
-    } else if (error.response.status === 404) {
-      error.message = "The requested resource was not found.";
-    } else if (error.response.status === 500) {
-      error.message = "An internal server error occurred. Please try again later.";
+      error.userFriendlyMessage = error.message;
+    } else if (status === 403) {
+      error.errorCategory = "FORBIDDEN" as ErrorCategory;
+      error.userFriendlyMessage = typeof detail === "string" && detail ? detail : "Access Denied: You do not have permission for this action.";
+      error.message = error.userFriendlyMessage;
+    } else if (status === 404) {
+      error.errorCategory = "NOT_FOUND" as ErrorCategory;
+      error.userFriendlyMessage = "The requested resource or workspace was not found.";
+      error.message = error.userFriendlyMessage;
+    } else if (status === 422 || (status === 400 && (detailLower.includes("processing") || detailLower.includes("dataset") || detailLower.includes("ingestion")))) {
+      error.errorCategory = "DATASET_PROCESSING" as ErrorCategory;
+      error.userFriendlyMessage = typeof detail === "string" && detail ? detail : "Dataset processing error. Please verify file format and columns.";
+      error.message = error.userFriendlyMessage;
+    } else if (status && status >= 500) {
+      error.errorCategory = "SERVER_ERROR" as ErrorCategory;
+      error.userFriendlyMessage = "An internal server error occurred. Please try again later.";
+      error.message = error.userFriendlyMessage;
+    } else {
+      error.errorCategory = "CLIENT_ERROR" as ErrorCategory;
+      error.userFriendlyMessage = typeof detail === "string" && detail ? detail : "Request failed.";
     }
 
     if (error.response?.data && !error.response.data.detail && error.response.data.reason) {

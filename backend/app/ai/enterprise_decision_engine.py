@@ -478,7 +478,84 @@ class EnterpriseDecisionEngine:
         opportunities = analytics_dict.get("opportunities", [])
         volume = analytics_dict.get("volume", 0)
 
-        if mode == "explain":
+        if mode in ("top_n", "ranking") and evidence_rows:
+            top = evidence_rows[0]
+            dim_label = top.get("dimension") or top.get("category") or "top category"
+            val = top.get("metric_value") or top.get("value") or 0
+            fmt_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+            measure_name = analytics_dict.get("evidence", {}).get("measures_analyzed", ["metric"])[0].replace("_", " ") if analytics_dict.get("evidence", {}).get("measures_analyzed") else "metric"
+            top_items = []
+            for r in evidence_rows[:5]:
+                d_val = r.get("dimension") or r.get("category") or "item"
+                v_val = r.get("metric_value") or r.get("value") or 0
+                f_v = f"{v_val:,.2f}" if isinstance(v_val, (int, float)) else str(v_val)
+                top_items.append(f"'{d_val}' ({f_v})")
+            top_list_str = ", ".join(top_items)
+            return (
+                f"1. EXECUTIVE ANSWER: '{dim_label}' is the top performer with an empirical value of {fmt_val} {measure_name} (confirmed by verified data analysis). Top rankings: {top_list_str}.\n\n"
+                f"2. WHAT HAPPENED: '{dim_label}' leads all categories in {measure_name} with {fmt_val} across {len(evidence_rows)} segments.\n\n"
+                f"3. WHY: '{dim_label}' has the highest aggregate {measure_name} based on direct aggregation.\n\n"
+                f"4. WHAT HAPPENS NEXT: Focus resources on maintaining '{dim_label}' while identifying replication opportunities across lower-tier segments.\n\n"
+                f"5. WHAT SHOULD WE DO: Prioritize investment in '{dim_label}' to extend leadership while monitoring runner-up trajectory."
+            )
+
+        elif mode == "trend" and evidence_rows:
+            latest_period = evidence_rows[-1].get("period", "latest") if evidence_rows else "latest"
+            latest_val = evidence_rows[-1].get("metric_value", 0) if evidence_rows else 0
+            fmt_val = f"{latest_val:,.2f}" if isinstance(latest_val, (int, float)) else str(latest_val)
+            measure_name = analytics_dict.get("evidence", {}).get("measures_analyzed", ["metric"])[0].replace("_", " ") if analytics_dict.get("evidence", {}).get("measures_analyzed") else "metric"
+            first_val = evidence_rows[0].get("metric_value", 0) if evidence_rows else 0
+            last_val = evidence_rows[-1].get("metric_value", 0) if evidence_rows else 0
+            if first_val != 0:
+                pct_change = ((last_val - first_val) / abs(first_val)) * 100
+                direction = "increased" if pct_change > 0 else "decreased"
+                trend_direction = f"The metric {direction} by {abs(pct_change):.1f}% across {len(evidence_rows)} periods."
+            else:
+                direction = "stable"
+                trend_direction = "The metric shows stable baseline behavior across observed periods."
+
+            return (
+                f"1. EXECUTIVE ANSWER: {measure_name.title()} shows a {direction.lower()} trend. Latest value ({latest_period}): {fmt_val}.\n\n"
+                f"2. WHAT HAPPENED: Time-series analysis across {len(evidence_rows)} periods shows the latest period reached {fmt_val}. {trend_direction}\n\n"
+                f"3. WHY: Trend direction is determined by comparing the first ({first_val:,.2f}) and latest ({last_val:,.2f}) observed values.\n\n"
+                f"4. WHAT HAPPENS NEXT: {'Continued directional movement expected based on current trend slope.' if first_val != 0 else 'Baseline stability expected without strong directional signals.'}\n\n"
+                f"5. WHAT SHOULD WE DO: {'Leverage upward momentum or investigate decline drivers based on trend direction.' if first_val != 0 else 'Maintain monitoring cadence and enrich dataset with additional temporal coverage.'}"
+            )
+
+        elif mode == "breakdown" and evidence_rows:
+            measure_name = analytics_dict.get("evidence", {}).get("measures_analyzed", ["metric"])[0].replace("_", " ") if analytics_dict.get("evidence", {}).get("measures_analyzed") else "metric"
+            total_val = sum((r.get("value") or r.get("metric_value") or 0) for r in evidence_rows)
+            breakdown_parts = []
+            for r in evidence_rows[:5]:
+                cat = r.get("category") or r.get("dimension") or "Unknown"
+                val = r.get("value") or r.get("metric_value") or 0
+                pct = (val / total_val * 100) if total_val > 0 else 0
+                breakdown_parts.append(f"'{cat}': {val:,.2f} ({pct:.1f}%)")
+            breakdown_summary = "; ".join(breakdown_parts)
+            top_cat = (evidence_rows[0].get("category") or evidence_rows[0].get("dimension") or "top category")
+            return (
+                f"1. EXECUTIVE ANSWER: Breakdown of {measure_name} across {len(evidence_rows)} segments shows '{top_cat}' as the largest share. Details: {breakdown_summary}.\n\n"
+                f"2. WHAT HAPPENED: Distribution analysis computed for {len(evidence_rows)} categories with total {measure_name} of {total_val:,.2f}.\n\n"
+                f"3. WHY: Segment concentration reveals how different categories contribute to aggregate {measure_name}.\n\n"
+                f"4. WHAT HAPPENS NEXT: Category proportions are expected to remain consistent barring strategic intervention.\n\n"
+                f"5. WHAT SHOULD WE DO: Diversify exposure if top category dominates over 40% of aggregate volume."
+            )
+
+        elif mode == "percentage" and evidence_rows:
+            measure_name = analytics_dict.get("evidence", {}).get("measures_analyzed", ["metric"])[0].replace("_", " ") if analytics_dict.get("evidence", {}).get("measures_analyzed") else "metric"
+            top_row = evidence_rows[0]
+            cat = top_row.get("category") or top_row.get("dimension") or "primary segment"
+            pct = top_row.get("percentage") or 0
+            val = top_row.get("metric_value") or top_row.get("value") or 0
+            return (
+                f"1. EXECUTIVE ANSWER: '{cat}' represents {pct:.1f}% of total {measure_name} ({val:,.2f}).\n\n"
+                f"2. WHAT HAPPENED: Share analysis across {len(evidence_rows)} categories identifies '{cat}' as the leading contributor at {pct:.1f}%.\n\n"
+                f"3. WHY: Computed via SQL window function aggregate relative to overall total.\n\n"
+                f"4. WHAT HAPPENS NEXT: Segment concentration trajectory depends on growth rates of secondary segments.\n\n"
+                f"5. WHAT SHOULD WE DO: Monitor concentration risk if '{cat}' exceeds risk tolerance thresholds."
+            )
+
+        elif mode == "explain":
             return (
                 f"1. EXECUTIVE ANSWER: This {domain} visualization is derived from {volume:,} verified records.\n\n"
                 f"2. WHAT HAPPENED: The analysis covers {len(kpis)} KPIs and {len(analytics_dict.get('dimensions', []))} dimensions from the dataset.\n\n"
@@ -538,15 +615,20 @@ class EnterpriseDecisionEngine:
                 f"5. WHAT SHOULD WE DO: {rec_text}"
             )
 
-        elif mode == "diagnose":
+        elif mode in ("diagnose", "anomaly"):
             anomaly_count = len(anomalies)
             high_severity = sum(1 for a in anomalies if str(getattr(a, "severity", "") if hasattr(a, "severity") else a.get("severity", "")).upper() in ("HIGH", "CRITICAL")) if anomalies else 0
+            ev_anomaly_text = ""
+            if evidence_rows:
+                flagged = [f"period {r.get('period')}: z={r.get('z_score', 0):.2f}" for r in evidence_rows[:3] if "z_score" in r]
+                if flagged:
+                    ev_anomaly_text = f" SQL statistical scan flagged: {', '.join(flagged)}."
             return (
-                f"1. EXECUTIVE ANSWER: {anomaly_count} anomalies detected. {high_severity} high-severity requiring investigation.\n\n"
-                f"2. WHAT HAPPENED: Statistical outlier detection identified {anomaly_count} anomalous observations.\n\n"
-                f"3. WHY: Data points exceeded 2-sigma variance limits from historical baseline distributions.\n\n"
-                f"4. WHAT HAPPENS NEXT: Unmitigated variance risks propagating operational disruption.\n\n"
-                f"5. WHAT SHOULD WE DO: Initiate root-cause audit on flagged periods and calibrate alert thresholds."
+                f"1. EXECUTIVE ANSWER: {anomaly_count} anomalies detected ({high_severity} high-severity).{ev_anomaly_text}\n\n"
+                f"2. WHAT HAPPENED: Statistical outlier detection identified {anomaly_count} anomalous observations exceeding standard variance thresholds.\n\n"
+                f"3. WHY: Data points exceeded 2-sigma variance limits from baseline distributions.\n\n"
+                f"4. WHAT HAPPENS NEXT: Unmitigated variance risks propagating operational disruption into upcoming periods.\n\n"
+                f"5. WHAT SHOULD WE DO: Initiate root-cause audit on flagged periods and adjust monitoring tolerances."
             )
 
         elif mode == "root_cause_analysis":

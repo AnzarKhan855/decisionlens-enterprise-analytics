@@ -14,24 +14,28 @@ from app.observability.structured_logger import get_logger, log_request_end
 logger = get_logger(__name__)
 
 
-class RequestState:
-    _local = threading.local()
+from contextvars import ContextVar
 
+_request_id_var: ContextVar[str] = ContextVar("request_id", default="unknown")
+_workspace_id_var: ContextVar[Optional[str]] = ContextVar("workspace_id", default=None)
+
+
+class RequestState:
     @classmethod
     def set_request_id(cls, request_id: str) -> None:
-        cls._local.request_id = request_id
+        _request_id_var.set(request_id)
 
     @classmethod
     def get_request_id(cls) -> str:
-        return getattr(cls._local, "request_id", None) or "unknown"
+        return _request_id_var.get() or "unknown"
 
     @classmethod
     def set_workspace_id(cls, workspace_id: Optional[str]) -> None:
-        cls._local.workspace_id = workspace_id
+        _workspace_id_var.set(workspace_id)
 
     @classmethod
     def get_workspace_id(cls) -> Optional[str]:
-        return getattr(cls._local, "workspace_id", None)
+        return _workspace_id_var.get()
 
 
 class ErrorDetail:
@@ -123,6 +127,8 @@ class GlobalErrorHandlerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
         RequestState.set_request_id(request_id)
+        ws_id = request.headers.get("X-Workspace-Id") or request.query_params.get("workspace_id")
+        RequestState.set_workspace_id(ws_id.strip() if ws_id else None)
 
         start_time = time.perf_counter()
         try:
