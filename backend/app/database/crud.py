@@ -42,6 +42,20 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return None
 
 
+def _get_next_user_id(db: Session) -> int:
+    from sqlalchemy import func
+    max_sqlite = db.query(func.max(User.id)).scalar() or 0
+    max_mongo = 0
+    try:
+        from app.database.mongodb import users as mongo_users
+        highest = mongo_users.find_one(sort=[("user_id", -1)])
+        if highest:
+            max_mongo = highest.get("user_id") or highest.get("id") or 0
+    except Exception:
+        pass
+    return max(max_sqlite, max_mongo) + 1
+
+
 def create_user(
     db: Session,
     email: str,
@@ -53,7 +67,21 @@ def create_user(
     email_clean = email.lower().strip()
     user = db.query(User).filter(User.email == email_clean).first()
     if not user:
+        existing_doc = None
+        try:
+            from app.database.mongodb import users as mongo_users
+            existing_doc = mongo_users.find_one({"email": email_clean})
+        except Exception:
+            pass
+
+        allocated_id = None
+        if existing_doc and (existing_doc.get("user_id") or existing_doc.get("id")):
+            allocated_id = existing_doc.get("user_id") or existing_doc.get("id")
+        else:
+            allocated_id = _get_next_user_id(db)
+
         user = User(
+            id=allocated_id,
             email=email_clean,
             hashed_password=hashed_password,
             full_name=full_name,
@@ -75,25 +103,53 @@ def create_user(
     try:
         from app.database.mongodb import users as mongo_users
         now_iso = datetime.now(timezone.utc).isoformat()
-        mongo_users.update_one(
-            {"email": email_clean},
-            {
-                "$set": {
-                    "id": user.id,
-                    "user_id": user.id,
-                    "email": email_clean,
-                    "hashed_password": hashed_password,
-                    "full_name": full_name,
-                    "role": role,
-                    "organization": organization,
-                    "updated_at": now_iso,
+        try:
+            mongo_users.update_one(
+                {"email": email_clean},
+                {
+                    "$set": {
+                        "id": user.id,
+                        "user_id": user.id,
+                        "email": email_clean,
+                        "hashed_password": hashed_password,
+                        "full_name": full_name,
+                        "role": role,
+                        "organization": organization,
+                        "updated_at": now_iso,
+                    },
+                    "$setOnInsert": {
+                        "created_at": now_iso,
+                    }
                 },
-                "$setOnInsert": {
-                    "created_at": now_iso,
-                }
-            },
-            upsert=True
-        )
+                upsert=True
+            )
+        except Exception as dup_err:
+            if "duplicate key" in str(dup_err).lower() and "user_id" in str(dup_err).lower():
+                new_id = _get_next_user_id(db)
+                user.id = new_id
+                db.commit()
+                db.refresh(user)
+                mongo_users.update_one(
+                    {"email": email_clean},
+                    {
+                        "$set": {
+                            "id": new_id,
+                            "user_id": new_id,
+                            "email": email_clean,
+                            "hashed_password": hashed_password,
+                            "full_name": full_name,
+                            "role": role,
+                            "organization": organization,
+                            "updated_at": now_iso,
+                        },
+                        "$setOnInsert": {
+                            "created_at": now_iso,
+                        }
+                    },
+                    upsert=True
+                )
+            else:
+                raise
         logger.info("[AUTH DB] Persisted user %s to durable MongoDB store (id=%s)", email_clean, user.id)
     except Exception as mongo_err:
         logger.warning("[MongoDB Auth Persistence Warning] Failed to persist user to MongoDB: %s", mongo_err)

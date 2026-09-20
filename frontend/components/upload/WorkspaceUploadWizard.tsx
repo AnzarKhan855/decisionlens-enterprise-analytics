@@ -27,11 +27,49 @@ export default function WorkspaceUploadWizard() {
   const [error, setError] = useState<string | null>(null);
   const [stepsList, setStepsList] = useState<Array<{ step: string; status: string }>>([]);
 
+  const WORKSPACE_JOB_KEY = "decisionlens_active_workspace_job";
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<any>(null);
   const pollRef = useRef<any>(null);
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(WORKSPACE_JOB_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.workspaceId) {
+          getWorkspaceProcessingStatus(parsed.workspaceId).then((stData) => {
+            if (stData && (stData.status === "PROCESSING" || stData.status === "UPLOADING" || (!stData.is_ready && stData.status !== "FAILED"))) {
+              setUploading(true);
+              setWorkspaceName(parsed.workspaceName || "");
+              if (parsed.startTime) {
+                startTimeRef.current = parsed.startTime;
+                setElapsedSeconds(Math.floor((Date.now() - parsed.startTime) / 1000));
+                timerRef.current = setInterval(() => {
+                  setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+                }, 1000);
+              }
+              setCurrentStepText(stData.current_step || stData.message || "Reconnected to active workspace ingestion...");
+              if (stData.progress !== undefined) {
+                setProcessingProgress(stData.progress);
+              }
+              startPipelineTracking(parsed.workspaceId, {
+                workspace_id: parsed.workspaceId,
+                workspace_name: parsed.workspaceName,
+                job_id: parsed.jobId,
+              });
+            } else {
+              localStorage.removeItem(WORKSPACE_JOB_KEY);
+            }
+          }).catch(() => {
+            localStorage.removeItem(WORKSPACE_JOB_KEY);
+          });
+        }
+      }
+    } catch (e) {
+      console.debug("[WorkspaceUploadWizard] Restore error:", e);
+    }
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
@@ -61,6 +99,7 @@ export default function WorkspaceUploadWizard() {
           if (stData.status === "COMPLETED" || stData.status === "SEMANTIC_READY" || stData.is_ready) {
             clearInterval(pollRef.current);
             clearInterval(timerRef.current);
+            localStorage.removeItem(WORKSPACE_JOB_KEY);
             setProcessingProgress(100);
             setCurrentStepText("AI Executive Insights Fully Prepared");
             setResult(initialData);
@@ -70,6 +109,7 @@ export default function WorkspaceUploadWizard() {
           } else if (stData.status === "FAILED") {
             clearInterval(pollRef.current);
             clearInterval(timerRef.current);
+            localStorage.removeItem(WORKSPACE_JOB_KEY);
             setUploading(false);
             setError(stData.error?.message || "Workspace ingestion failed.");
           }
@@ -108,18 +148,49 @@ export default function WorkspaceUploadWizard() {
       const wsId = resData.workspace_id || resData.active_workspace;
 
       if (wsId) {
+        try {
+          localStorage.setItem(WORKSPACE_JOB_KEY, JSON.stringify({
+            workspaceId: wsId,
+            workspaceName: resData.workspace_name || workspaceName || wsId,
+            jobId: resData.job_id,
+            startTime: startTimeRef.current,
+          }));
+        } catch (e) {
+          console.debug("[WorkspaceUploadWizard] Failed to save active job:", e);
+        }
         await startPipelineTracking(wsId, resData);
       } else {
         // Instant synchronous success
         clearInterval(timerRef.current);
+        localStorage.removeItem(WORKSPACE_JOB_KEY);
         setResult(resData);
         activateAndSyncWorkspace(resData);
         invalidateCache();
         setUploading(false);
       }
     } catch (err: any) {
+      // Check if backend received the upload and started background ingestion despite network disconnect
+      const candidateWsId = workspaceName.trim() ? workspaceName.trim().toLowerCase().replace(/ /g, "-") : null;
+      if (candidateWsId) {
+        try {
+          const activeCheck = await getWorkspaceProcessingStatus(candidateWsId);
+          if (activeCheck && (activeCheck.status === "PROCESSING" || activeCheck.is_ready)) {
+            setCurrentStepText("Connection recovered. Tracking background ingestion progress...");
+            await startPipelineTracking(candidateWsId, {
+              workspace_id: candidateWsId,
+              workspace_name: workspaceName,
+              job_id: activeCheck.job_id,
+            });
+            return;
+          }
+        } catch {
+          // Fall through to error handler
+        }
+      }
+
       clearInterval(timerRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
+      localStorage.removeItem(WORKSPACE_JOB_KEY);
       setUploading(false);
       const msg = extractErrorMessage(err.response?.data, err.userFriendlyMessage || err.message || "An error occurred during workspace ingestion.");
       if (err.response?.status === 401) {

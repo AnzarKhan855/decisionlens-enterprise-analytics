@@ -1,3 +1,4 @@
+import hashlib
 import os
 import tempfile
 import time
@@ -23,11 +24,12 @@ from app.database.crud import delete_dataset_permanently, save_dataset
 from app.database.duckdb_engine import DuckDBEngine
 from app.database.mongodb import datasets as mongo_datasets
 from app.database.mongodb import workspaces as mongo_workspaces
-from app.database.storage import ParquetStorageManager
+from app.database.storage import STORAGE_DIR, ParquetStorageManager
 from app.ingestion.domain_classifier import DatasetDomainClassifier
 from app.ingestion.generic_loader import CsvImportError, GenericDataLoader
 from app.ingestion.semantic_profiler import SemanticDataProfiler
 from app.logging.logger import get_logger
+from app.services.ingestion_job_service import IngestionJobService, JobState
 from app.services.workspace_service import EnterpriseWorkspaceManager
 
 logger = get_logger(__name__)
@@ -103,166 +105,117 @@ def get_workspace_status(workspace_id: str):
     return EnterpriseWorkspaceManager.get_processing_status(workspace_id)
 
 
-@router.post("/workspaces/upload")
-@router.post("/workspace/upload-zip")
-async def upload_workspace_zip(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    workspace_name: Optional[str] = Form(None),
-    user: dict = Depends(get_current_user_from_token)
-):
+def run_workspace_zip_pipeline(
+    job_id: str,
+    zip_path: Path,
+    ws_id: str,
+    ws_title: str,
+    created_by: str,
+    file_sha256: str,
+    user: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
-    Ingests a ZIP Archive containing multi-table business datasets.
-    Provides stage-by-stage error tracing and structured JSON error responses.
+    Executes the multi-table analytical ingestion pipeline for an uploaded ZIP archive.
+    Runs asynchronously in background workers or synchronously if requested.
+    Performs single-pass file conversion and guarantees zero duplicate conversions.
     """
-    current_stage = "Initialization & Validation"
-    ws_id = workspace_name.lower().replace(" ", "-") if workspace_name else f"workspace-{uuid.uuid4().hex[:8]}"
-    ws_title = workspace_name or f"Workspace {ws_id[:8]}"
-    tmp_dir = None
-    db = SessionLocal()
-    created_by = user.get("email", "") if user else ""
+    current_stage = "Initialization"
+    tmp_extract_dir = None
+    db = None
+
+    logger.info("[ZipPipeline] Starting execution for job %s (workspace: %s, file: %s)", job_id, ws_id, zip_path.name)
 
     try:
-        current_stage = "ZIP Format Validation"
-        if not file.filename.endswith(".zip"):
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "status": "error",
-                    "stage": current_stage,
-                    "exception": "InvalidFileFormat",
-                    "message": "Only .zip archive files are supported.",
-                    "suggested_fix": "Please upload a valid ZIP archive containing CSV, Excel, or Parquet files.",
-                    "workspace_id": ws_id,
-                    "file": file.filename
-                }
-            )
+        # 1. Atomic job claim to prevent duplicate execution across workers/threads
+        claimed = IngestionJobService.claim_job_for_processing(job_id)
+        if not claimed:
+            curr = IngestionJobService.get_job(job_id)
+            if curr and curr.get("status") in (JobState.PROCESSING.value, JobState.READY.value, "COMPLETED"):
+                logger.info("[ZipPipeline] Job %s already claimed or completed. Skipping duplicate execution.", job_id)
+                return curr
 
-        MAX_ZIP_SIZE_BYTES = 2 * 1024 * 1024 * 1024
-        current_stage = "ZIP File Reading & SHA256 Deduplication"
-        tmp_dir = Path(tempfile.mkdtemp(prefix="decisionlens_zip_"))
-        zip_path = tmp_dir / file.filename
+        # 2. Extract ZIP safely
+        current_stage = "ZIP Extraction & Validation"
+        IngestionJobService.update_job(job_id, JobState.VALIDATING, 25, message="Extracting and validating ZIP archive")
+        EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", 25, "Extracting and validating ZIP archive")
 
-        content = await file.read(MAX_ZIP_SIZE_BYTES + 1)
-        if len(content) > MAX_ZIP_SIZE_BYTES:
-            return JSONResponse(
-                status_code=413,
-                content={
-                    "status": "error",
-                    "stage": current_stage,
-                    "exception": "FileTooLarge",
-                    "message": f"ZIP archive too large. Maximum size is {MAX_ZIP_SIZE_BYTES // (1024*1024*1024)} GB.",
-                    "workspace_id": ws_id,
-                    "file": file.filename
-                }
-            )
-        import hashlib
-        file_sha256 = hashlib.sha256(content).hexdigest()
-        existing_ws = EnterpriseWorkspaceManager.get_workspace_by_sha256(file_sha256)
+        tmp_extract_dir = Path(tempfile.mkdtemp(prefix="decisionlens_zip_extract_"))
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            for member in zip_ref.namelist():
+                member_path = Path(member)
+                if member_path.is_absolute() or ".." in member_path.parts:
+                    raise ValueError(f"ZIP entry '{member}' contains unsafe path traversal.")
+            zip_ref.extractall(tmp_extract_dir)
 
-        if existing_ws:
-            ws_id = existing_ws["workspace_id"]
-            ws_title = existing_ws["name"]
-        else:
-            ws_id = workspace_name.lower().replace(" ", "-") if workspace_name else (EnterpriseWorkspaceManager.get_active_workspace_id() or f"ws-{uuid.uuid4().hex[:8]}")
-            ws_title = workspace_name or "Enterprise Workspace"
-
-        with open(zip_path, "wb") as f:
-            f.write(content)
-
-        extract_dir = tmp_dir / "extracted"
-        extract_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                for member in zip_ref.namelist():
-                    member_path = Path(member)
-                    if member_path.is_absolute() or ".." in member_path.parts:
-                        return JSONResponse(
-                            status_code=400,
-                            content={
-                                "status": "error",
-                                "stage": current_stage,
-                                "exception": "UnsafeZipEntry",
-                                "message": f"ZIP entry '{member}' contains unsafe path. Extraction aborted.",
-                                "workspace_id": ws_id,
-                                "file": file.filename
-                            }
-                        )
-                zip_ref.extractall(extract_dir)
-        except zipfile.BadZipFile:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "status": "error",
-                    "stage": current_stage,
-                    "exception": "BadZipFile",
-                    "message": "The uploaded ZIP file is corrupted or not a valid ZIP archive.",
-                    "suggested_fix": "Re-compress your datasets into a standard zip file and try again.",
-                    "workspace_id": ws_id,
-                    "file": file.filename
-                }
-            )
-
+        # 3. Discover tabular dataset files
         current_stage = "Tabular Dataset Discovery"
         data_files = []
-        for root, _, files in os.walk(extract_dir):
+        for root, _, files in os.walk(tmp_extract_dir):
             for fn in files:
+                if fn.startswith(".") or fn.startswith("__"):
+                    continue
                 ext = Path(fn).suffix.lower()
                 if ext in (".csv", ".xlsx", ".parquet", ".json"):
                     data_files.append(Path(root) / fn)
 
         if not data_files:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "status": "error",
-                    "stage": current_stage,
-                    "exception": "EmptyDatasetArchive",
-                    "message": "No supported datasets (.csv, .xlsx, .parquet) were found inside the ZIP archive.",
-                    "suggested_fix": "Ensure the ZIP archive contains at least one CSV, Excel, or Parquet dataset file.",
-                    "workspace_id": ws_id,
-                    "file": file.filename
-                }
-            )
+            raise ValueError("No supported datasets (.csv, .xlsx, .parquet) were found inside the ZIP archive.")
 
-        current_stage = "Domain Classification & Ingestion Setup"
-        first_table_name = data_files[0].stem.lower().replace("-", "_").replace(" ", "_")
-        first_dataset_id = f"{ws_id}__{first_table_name}"
-        first_parquet = GenericDataLoader.convert_to_parquet(data_files[0], first_dataset_id)
-        domain_res = DatasetDomainClassifier.classify(first_parquet, data_files[0].name)
-        detected_domain = domain_res.get("domain", "Generic Business")
+        # Sort files deterministically
+        data_files.sort(key=lambda p: p.name.lower())
+        total_files = len(data_files)
+        logger.info("[ZipPipeline] Discovered %d dataset(s) for workspace '%s': %s",
+                    total_files, ws_id, [f.name for f in data_files])
 
-        workspace = EnterpriseWorkspaceManager.create_or_get_workspace(ws_id, ws_title, industry=detected_domain, created_by=created_by)
-        EnterpriseWorkspaceManager.add_sha256_hash(ws_id, file_sha256)
-
-        try:
-            mongo_workspaces.update_one(
-                {"workspace_id": ws_id},
-                {
-                    "$set": {
-                        "workspace_id": ws_id,
-                        "name": ws_title,
-                        "industry": detected_domain,
-                        "domain": detected_domain,
-                        "sha256_hash": file_sha256,
-                        "created_by": created_by,
-                        "updated_at": datetime.now(UTC).isoformat(),
-                    }
-                },
-                upsert=True,
-            )
-        except Exception as mongo_exc:
-            logger.warning("[MongoDB Workspace Metadata] %s", mongo_exc)
-
+        db = SessionLocal()
         con = DuckDBEngine.get_connection()
         tables_summary = []
+        detected_domain = "Generic Business"
 
+        # 4. SINGLE-PASS conversion, classification, profiling, and DuckDB registration
         current_stage = "Table Conversion & Profiling"
-        for df_path in data_files:
+        for idx, df_path in enumerate(data_files):
             table_name = df_path.stem.lower().replace("-", "_").replace(" ", "_")
             unique_dataset_id = f"{ws_id}__{table_name}"
+
+            progress_pct = 30 + int((idx / total_files) * 45)
+            step_msg = f"Converting table '{table_name}' ({idx + 1}/{total_files})"
+            IngestionJobService.update_job(job_id, JobState.PROCESSING, progress_pct, message=step_msg)
+            EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", progress_pct, step_msg)
+
+            # Convert to Parquet EXACTLY ONCE
             parquet_path = GenericDataLoader.convert_to_parquet(df_path, unique_dataset_id)
 
+            # First table: classify domain & initialize workspace metadata
+            if idx == 0:
+                domain_res = DatasetDomainClassifier.classify(parquet_path, df_path.name)
+                detected_domain = domain_res.get("domain", "Generic Business")
+
+                EnterpriseWorkspaceManager.create_or_get_workspace(
+                    ws_id, ws_title, industry=detected_domain, created_by=created_by
+                )
+                EnterpriseWorkspaceManager.add_sha256_hash(ws_id, file_sha256)
+
+                try:
+                    mongo_workspaces.update_one(
+                        {"workspace_id": ws_id},
+                        {
+                            "$set": {
+                                "workspace_id": ws_id,
+                                "name": ws_title,
+                                "industry": detected_domain,
+                                "domain": detected_domain,
+                                "sha256_hash": file_sha256,
+                                "created_by": created_by,
+                                "updated_at": datetime.now(UTC).isoformat(),
+                            }
+                        },
+                        upsert=True,
+                    )
+                except Exception as mongo_exc:
+                    logger.warning("[MongoDB Workspace Metadata] %s", mongo_exc)
+
+            # Profile dataset
             profile = SemanticDataProfiler.profile(parquet_path)
             cols = [
                 {"name": c, "type": profile["columns"][c].get("inferred_type", "VARCHAR")}
@@ -270,7 +223,10 @@ async def upload_workspace_zip(
             ]
             row_cnt = profile.get("total_rows", 0)
 
+            # Save dataset metadata in SQLite
             try:
+                resolved_user_id = user.get("id") or user.get("user_id") if user else None
+                user_email = user.get("email") if user else created_by
                 save_dataset(
                     db=db,
                     filename=df_path.name,
@@ -280,12 +236,13 @@ async def upload_workspace_zip(
                     columns=len(cols),
                     file_type=df_path.suffix.lstrip(".").lower(),
                     file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0,
-                    user_id=user.get("id") or user.get("user_id") if user else None,
-                    user_email=user.get("email") if user else None,
+                    user_id=resolved_user_id,
+                    user_email=user_email,
                 )
             except Exception as e:
-                logger.warning("[Workspace DB Save Warning] %s", e)
+                logger.warning("[Workspace DB Save Warning] %s: %s", table_name, e)
 
+            # Save dataset metadata in MongoDB
             try:
                 mongo_datasets.update_one(
                     {"file_path": str(parquet_path)},
@@ -299,7 +256,7 @@ async def upload_workspace_zip(
                             "file_type": df_path.suffix.lstrip(".").lower(),
                             "workspace_id": ws_id,
                             "user_id": user.get("id") or user.get("user_id") if user else None,
-                            "user_email": user.get("email") if user else None,
+                            "user_email": user.get("email") if user else created_by,
                             "uploaded_at": datetime.now(UTC).isoformat(),
                         }
                     },
@@ -308,6 +265,7 @@ async def upload_workspace_zip(
             except Exception as mongo_exc:
                 logger.warning("[MongoDB Dataset Metadata] %s", mongo_exc)
 
+            # DuckDB Table Registration
             current_stage = f"DuckDB Table Registration ({table_name})"
             try:
                 from app.database.duckdb_engine import _validate_identifier, _validate_parquet_path
@@ -325,11 +283,18 @@ async def upload_workspace_zip(
                 "columns_count": len(cols)
             })
 
-        current_stage = "Workspace Active State & Async Background Intelligence Dispatch"
+        # 5. Build Semantic Model
+        current_stage = "Building Executive Semantic Model"
+        IngestionJobService.update_job(
+            job_id,
+            JobState.BUILDING_SEMANTIC_MODEL,
+            80,
+            message="Discovering cross-table connections & building semantic model"
+        )
         EnterpriseWorkspaceManager.set_active_workspace(ws_id)
-        EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", 20, "Tables Ingested & Workspace Ready")
+        EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", 80, "Building executive semantic model")
 
-        from app.semantic_model.engine import invalidate_semantic_model_cache
+        from app.semantic_model.engine import invalidate_semantic_model_cache, build_semantic_model
         invalidate_semantic_model_cache()
         _STRUCTURE_CACHE.clear()
         try:
@@ -338,10 +303,59 @@ async def upload_workspace_zip(
         except Exception:
             pass
 
-        # Phase 2: Dispatch background worker task for non-blocking relationship discovery & AI insights
-        background_tasks.add_task(run_workspace_background_intelligence, ws_id)
+        try:
+            build_semantic_model(workspace_id=ws_id, force_rebuild=True)
+        except Exception as sem_err:
+            logger.warning("[ZipPipeline] Semantic model build warning: %s", sem_err)
 
-        # Return Instant Response (< 2 seconds)
+        # 6. Executive Dataset Intelligence Layer
+        current_stage = "Executive Intelligence Preparation"
+        IngestionJobService.update_job(
+            job_id,
+            JobState.BUILDING_SEMANTIC_MODEL,
+            90,
+            message="Generating AI executive insights"
+        )
+        EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", 90, "Generating AI executive insights")
+
+        try:
+            from app.database.storage import STORAGE_DIR
+            from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
+            from app.semantic_model.engine import _workspace_prefix_for
+            clean_target = _workspace_prefix_for(ws_id)
+            parquet_files = []
+            if STORAGE_DIR.exists():
+                for p in STORAGE_DIR.glob("*.parquet"):
+                    if p.name.startswith("unified_") or p.name.startswith("tmp_"):
+                        continue
+                    clean_pname = p.stem.lower().replace("-", "_")
+                    if clean_target in clean_pname or clean_pname.startswith(clean_target):
+                        parquet_files.append(p)
+            if parquet_files:
+                primary_parquet = sorted(parquet_files, key=lambda x: x.stat().st_mtime, reverse=True)[0]
+                DatasetIntelligenceLayer.analyze(workspace_id=ws_id, parquet_path=primary_parquet, force_rebuild=True)
+        except Exception as intel_err:
+            logger.warning("[ZipPipeline] Dataset intelligence analysis warning: %s", intel_err)
+
+        # 7. Complete Job
+        total_rows = sum(t["rows"] for t in tables_summary)
+        metrics = {
+            "tables": len(tables_summary),
+            "rows": total_rows,
+            "domain": detected_domain,
+            "tables_summary": tables_summary,
+        }
+        IngestionJobService.update_job(
+            job_id,
+            JobState.READY,
+            100,
+            message="Dataset fully ingested and ready for executive intelligence",
+            metrics_update=metrics,
+        )
+        EnterpriseWorkspaceManager.update_processing_status(ws_id, "COMPLETED", 100, "AI Executive Insights Fully Prepared")
+        logger.info("[ZipPipeline] Completed pipeline for workspace '%s' (job: %s, tables: %d, rows: %d)",
+                    ws_id, job_id, len(tables_summary), total_rows)
+
         return {
             "status": "success",
             "upload_status": "COMPLETED",
@@ -351,58 +365,258 @@ async def upload_workspace_zip(
             "active_workspace": ws_id,
             "industry": detected_domain,
             "business_type": "Enterprise Operations",
-            "datasets_count": len(data_files),
-            "total_tables_ingested": len(data_files),
+            "datasets_count": len(tables_summary),
+            "total_tables_ingested": len(tables_summary),
             "tables": tables_summary,
-            "processing_status": "PROCESSING",
-            "is_ready": True
+            "processing_status": "COMPLETED",
+            "is_ready": True,
         }
 
-    except CsvImportError as csv_err:
-        tb_str = traceback.format_exc()
-        logger.error(
-            "[Upload ZIP CSV Error Stage: %s] filename=%s | path=%s | error=%s\n%s",
-            current_stage, csv_err.filename, csv_err.absolute_path, str(csv_err), tb_str
-        )
-        return JSONResponse(
-            status_code=422,
-            content={
-                "status": "error",
-                "stage": current_stage,
-                "exception": csv_err.original_exception.__class__.__name__ if csv_err.original_exception else csv_err.stage,
-                "message": str(csv_err),
-                "filename": csv_err.filename,
-                "absolute_path": csv_err.absolute_path,
-                "sql_query": csv_err.sql_query,
-                "suggested_fix": "Check CSV encoding, delimiter, headers, quoting, and malformed rows.",
-                "workspace_id": ws_id,
-                "file": file.filename
-            }
-        )
     except Exception as ex:
         tb_str = traceback.format_exc()
-        logger.error("[Upload ZIP Error Stage: %s] %s\n%s", current_stage, ex, tb_str)
+        logger.error("[ZipPipeline Failed at Stage '%s'] job=%s ws=%s: %s\n%s", current_stage, job_id, ws_id, ex, tb_str)
+        IngestionJobService.update_job(
+            job_id,
+            JobState.FAILED,
+            100,
+            message=f"Ingestion failed at stage '{current_stage}': {str(ex)}",
+            error_details={
+                "stage": current_stage,
+                "exception": ex.__class__.__name__,
+                "message": str(ex),
+                "traceback": tb_str.splitlines()[-3:],
+            }
+        )
+        EnterpriseWorkspaceManager.update_processing_status(ws_id, "FAILED", 100, f"Failed at {current_stage}: {str(ex)}")
+        raise
+    finally:
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+        if tmp_extract_dir and tmp_extract_dir.exists():
+            import shutil
+            try:
+                shutil.rmtree(tmp_extract_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+
+@router.post("/workspaces/upload")
+@router.post("/workspace/upload-zip")
+async def upload_workspace_zip(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    workspace_name: Optional[str] = Form(None),
+    sync: bool = Query(False, description="Run synchronously if True (default False for large datasets)"),
+    user: dict = Depends(get_current_user_from_token)
+):
+    """
+    Ingests a ZIP Archive containing multi-table business datasets.
+    Streams the archive to durable storage in chunks, checks SHA-256 idempotency,
+    creates an IngestionJob, and dispatches asynchronous analytical processing.
+    Returns HTTP 202 Accepted immediately (< 500ms) with job and status URLs.
+    """
+    current_stage = "Initialization & Validation"
+    ws_id = workspace_name.lower().replace(" ", "-") if workspace_name else f"workspace-{uuid.uuid4().hex[:8]}"
+    ws_title = workspace_name or f"Workspace {ws_id[:8]}"
+    created_by = user.get("email", "") if user else ""
+
+    if not file.filename.lower().endswith(".zip"):
         return JSONResponse(
-            status_code=500,
+            status_code=400,
             content={
                 "status": "error",
-                "stage": current_stage,
-                "message": f"Upload failed at stage '{current_stage}': {str(ex)}",
-                "exception": ex.__class__.__name__,
-                "traceback": tb_str.splitlines()[-3:],
-                "suggested_fix": "Please check dataset formatting and try again.",
+                "stage": "ZIP Format Validation",
+                "exception": "InvalidFileFormat",
+                "message": "Only .zip archive files are supported.",
+                "suggested_fix": "Please upload a valid ZIP archive containing CSV, Excel, or Parquet files.",
                 "workspace_id": ws_id,
                 "file": file.filename
             }
         )
-    finally:
-        db.close()
-        if tmp_dir and tmp_dir.exists():
-            import shutil
-            try:
-                shutil.rmtree(tmp_dir, ignore_errors=True)
-            except Exception:
-                pass
+
+    # 1. Stream uploaded ZIP to raw storage with size check & SHA-256 calculation
+    current_stage = "ZIP Streaming & SHA256 Deduplication"
+    raw_dir = STORAGE_DIR / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = raw_dir / f"{ws_id}__{file.filename}"
+
+    MAX_ZIP_SIZE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
+    hasher = hashlib.sha256()
+    file_size = 0
+
+    try:
+        with open(zip_path, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                file_size += len(chunk)
+                if file_size > MAX_ZIP_SIZE_BYTES:
+                    try:
+                        zip_path.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "status": "error",
+                            "stage": "ZIP File Reading",
+                            "exception": "FileTooLarge",
+                            "message": f"ZIP archive too large. Maximum size is {MAX_ZIP_SIZE_BYTES // (1024*1024*1024)} GB.",
+                            "workspace_id": ws_id,
+                            "file": file.filename
+                        }
+                    )
+                hasher.update(chunk)
+                f.write(chunk)
+    except Exception as read_err:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "stage": "ZIP File Reading",
+                "exception": read_err.__class__.__name__,
+                "message": f"Failed to read uploaded file: {str(read_err)}",
+                "workspace_id": ws_id,
+                "file": file.filename
+            }
+        )
+
+    # 2. Fast ZIP header integrity validation
+    if not zipfile.is_zipfile(zip_path):
+        try:
+            zip_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "stage": "ZIP Format Validation",
+                "exception": "BadZipFile",
+                "message": "The uploaded ZIP file is corrupted or not a valid ZIP archive.",
+                "suggested_fix": "Re-compress your datasets into a standard zip file and try again.",
+                "workspace_id": ws_id,
+                "file": file.filename
+            }
+        )
+
+    file_sha256 = hasher.hexdigest()
+
+    # 3. Deduplication: Check if active job already running or identical workspace exists
+    existing_job = IngestionJobService.get_active_job_for_workspace(ws_id)
+    if existing_job and existing_job.get("status") in ("PROCESSING", "UPLOADING", "VALIDATING", "PROFILING", "BUILDING_SEMANTIC_MODEL"):
+        logger.info("[UploadZip] Re-attaching to existing active job %s for workspace %s", existing_job["job_id"], ws_id)
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "processing",
+                "upload_status": "PROCESSING",
+                "job_id": existing_job["job_id"],
+                "workspace_id": ws_id,
+                "workspace_name": ws_title,
+                "active_workspace": ws_id,
+                "filename": file.filename,
+                "message": "An ingestion job is already in progress for this workspace.",
+                "status_url": f"/api/v1/workspace/{ws_id}/status",
+                "progress_pct": existing_job.get("progress_pct", 30),
+                "is_ready": False,
+            }
+        )
+
+    existing_ws = EnterpriseWorkspaceManager.get_workspace_by_sha256(file_sha256)
+    if existing_ws:
+        ws_id = existing_ws["workspace_id"]
+        ws_title = existing_ws.get("name", ws_title)
+
+    # 4. Create durable Ingestion Job in MongoDB & memory
+    job = IngestionJobService.create_job(
+        workspace_id=ws_id,
+        dataset_id=ws_id,
+        filename=file.filename,
+        file_size_bytes=file_size,
+        user_email=created_by,
+        user_id=user.get("id") or user.get("user_id") if user else None,
+        initial_status=JobState.UPLOADED,
+    )
+
+    # 5. Synchronous vs Asynchronous execution
+    if sync:
+        logger.info("[UploadZip] Executing synchronous ingestion for job %s", job["job_id"])
+        try:
+            res = run_workspace_zip_pipeline(
+                job_id=job["job_id"],
+                zip_path=zip_path,
+                ws_id=ws_id,
+                ws_title=ws_title,
+                created_by=created_by,
+                file_sha256=file_sha256,
+                user=user,
+            )
+            return JSONResponse(status_code=200, content=res)
+        except CsvImportError as csv_err:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "status": "error",
+                    "stage": "CSV Processing",
+                    "exception": csv_err.original_exception.__class__.__name__ if csv_err.original_exception else csv_err.stage,
+                    "message": str(csv_err),
+                    "filename": csv_err.filename,
+                    "suggested_fix": "Check CSV encoding, delimiter, headers, and quoting.",
+                    "workspace_id": ws_id,
+                }
+            )
+        except Exception as sync_err:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "stage": "Ingestion",
+                    "message": f"Ingestion failed: {str(sync_err)}",
+                    "workspace_id": ws_id,
+                }
+            )
+
+    # Default: Non-blocking asynchronous background execution
+    if background_tasks is not None:
+        background_tasks.add_task(
+            run_workspace_zip_pipeline,
+            job["job_id"],
+            zip_path,
+            ws_id,
+            ws_title,
+            created_by,
+            file_sha256,
+            user,
+        )
+    else:
+        import threading
+        threading.Thread(
+            target=run_workspace_zip_pipeline,
+            args=(job["job_id"], zip_path, ws_id, ws_title, created_by, file_sha256, user),
+            daemon=True,
+        ).start()
+
+    logger.info("[UploadZip] Dispatched async ingestion pipeline for job %s (workspace: %s)", job["job_id"], ws_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "processing",
+            "upload_status": "PROCESSING",
+            "job_id": job["job_id"],
+            "workspace_id": ws_id,
+            "workspace_name": ws_title,
+            "active_workspace": ws_id,
+            "filename": file.filename,
+            "stage": "UPLOADED",
+            "progress_pct": 20,
+            "message": f"ZIP archive '{file.filename}' received. Multi-table analytical pipeline running in background.",
+            "status_url": f"/api/v1/workspace/{ws_id}/status",
+            "is_ready": False,
+        }
+    )
 
 
 @router.post("/workspace/upload-folder")

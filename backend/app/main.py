@@ -84,6 +84,14 @@ if extra_origins:
         if o_clean and o_clean not in origins:
             origins.append(o_clean)
 
+from app.middleware.performance_middleware import HighResolutionPerformanceMiddleware
+
+app.add_middleware(HighResolutionPerformanceMiddleware)
+app.add_middleware(GlobalErrorHandlerMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -93,14 +101,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Workspace-Id", "X-Request-Id", "Accept", "Origin"],
     max_age=86400,
 )
-
-from app.middleware.performance_middleware import HighResolutionPerformanceMiddleware
-
-app.add_middleware(HighResolutionPerformanceMiddleware)
-app.add_middleware(GlobalErrorHandlerMiddleware)
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")

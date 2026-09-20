@@ -54,17 +54,32 @@ def test_corrupt_zip_archive_returns_400(auth_headers):
     assert data["status"] == "error"
     assert "corrupted" in data["message"].lower() or "badzipfile" in data["exception"].lower()
 
-def test_valid_zip_upload_ingestion_succeeds(auth_headers):
+def test_valid_zip_upload_ingestion_async_accepted(auth_headers):
     zip_bytes = create_sample_zip_bytes()
     response = client.post(
         "/api/v1/workspace/upload-zip",
         headers=auth_headers,
         files={"file": ("enterprise_dataset.zip", zip_bytes, "application/zip")},
-        data={"workspace_name": "Test Orlys Enterprise"}
+        data={"workspace_name": "Test Orlys Enterprise Async"}
+    )
+    assert response.status_code == 202
+    data = response.json()
+    assert data["upload_status"] == "PROCESSING"
+    assert "workspace_id" in data
+    assert "job_id" in data
+    assert "status_url" in data
+
+def test_valid_zip_upload_ingestion_sync_succeeds(auth_headers):
+    zip_bytes = create_sample_zip_bytes()
+    response = client.post(
+        "/api/v1/workspace/upload-zip?sync=true",
+        headers=auth_headers,
+        files={"file": ("enterprise_dataset_sync.zip", zip_bytes, "application/zip")},
+        data={"workspace_name": "Test Orlys Enterprise Sync"}
     )
     assert response.status_code in (200, 201)
     data = response.json()
     assert data["status"] == "success"
     assert "workspace_id" in data
-    assert data["workspace_name"] == "Test Orlys Enterprise"
+    assert data["workspace_name"] == "Test Orlys Enterprise Sync"
     assert len(data["tables"]) > 0

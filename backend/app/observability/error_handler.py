@@ -5,7 +5,7 @@ import threading
 from typing import Any, Dict, Optional, Callable
 from datetime import datetime, timezone
 
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -123,6 +123,33 @@ def _build_error_response(
     ).to_dict()
 
 
+import re
+
+_ALLOWED_ORIGIN_REGEX = re.compile(r"^https:\/\/decisionlens-enterprise-analytics(-[a-zA-Z0-9_-]+)?\.vercel\.app$")
+_EXPLICIT_ALLOWED_ORIGINS = {
+    "https://decisionlens-enterprise-analytics.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+}
+
+
+def _apply_cors_headers_if_allowed(response: Response, request: Request) -> None:
+    origin = request.headers.get("origin")
+    if not origin:
+        return
+    clean_origin = origin.strip().rstrip("/")
+    if clean_origin in _EXPLICIT_ALLOWED_ORIGINS or _ALLOWED_ORIGIN_REGEX.match(clean_origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Workspace-Id, X-Request-Id, Accept, Origin"
+        response.headers["Vary"] = "Origin"
+
+
 class GlobalErrorHandlerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid.uuid4())
@@ -154,7 +181,9 @@ class GlobalErrorHandlerMiddleware(BaseHTTPMiddleware):
                 duration_ms=elapsed_ms,
                 workspace_id=RequestState.get_workspace_id(),
             )
-            return JSONResponse(status_code=exc.status_code, content=error_body)
+            resp = JSONResponse(status_code=exc.status_code, content=error_body)
+            _apply_cors_headers_if_allowed(resp, request)
+            return resp
         except Exception as exc:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             error_body = _build_error_response(exc, status_code=500, stage="unhandled_exception")
@@ -166,4 +195,6 @@ class GlobalErrorHandlerMiddleware(BaseHTTPMiddleware):
                 duration_ms=elapsed_ms,
                 workspace_id=RequestState.get_workspace_id(),
             )
-            return JSONResponse(status_code=500, content=error_body)
+            resp = JSONResponse(status_code=500, content=error_body)
+            _apply_cors_headers_if_allowed(resp, request)
+            return resp

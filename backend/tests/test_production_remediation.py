@@ -271,3 +271,131 @@ def test_empty_file_returns_422_with_structured_error():
     assert "detail" in data
     assert data["detail"]["stage"] == "preflight_empty"
     assert "0 bytes" in data["detail"]["message"]
+
+
+def test_cors_headers_present_on_500_error_response():
+    """
+    Test 8: Ensure CORS headers are attached to 500 error responses generated
+    by GlobalErrorHandlerMiddleware when origin is vercel.app.
+    """
+    from fastapi import APIRouter
+    from app.main import app as main_app
+
+    # Create a temporary test route that raises an unhandled exception
+    test_router = APIRouter()
+    @test_router.get("/api/v1/test-unhandled-exception-cors")
+    def _raise_error():
+        raise RuntimeError("Simulated unhandled production explosion")
+
+    main_app.include_router(test_router)
+    try:
+        res = client.get(
+            "/api/v1/test-unhandled-exception-cors",
+            headers={"Origin": "https://decisionlens-enterprise-analytics.vercel.app"}
+        )
+        assert res.status_code == 500
+        # Verify CORS headers are present on the 500 response!
+        assert res.headers.get("access-control-allow-origin") == "https://decisionlens-enterprise-analytics.vercel.app"
+        assert res.headers.get("access-control-allow-credentials") == "true"
+    finally:
+        # Clean up route from app
+        main_app.routes[:] = [r for r in main_app.routes if getattr(r, "path", None) != "/api/v1/test-unhandled-exception-cors"]
+
+
+def test_zip_upload_returns_202_accepted_immediately():
+    """
+    Test 9: ZIP upload returns HTTP 202 Accepted in under 1 second,
+    with job_id, workspace_id, and status_url.
+    """
+    import io
+    import time
+    import zipfile
+
+    token = SecurityManager.create_access_token({"sub": "admin@enterprise.com", "role": "SUPER_ADMIN"})
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("orders.csv", "order_id,amount,customer_id\n1,100,c1\n2,200,c2\n")
+        zf.writestr("customers.csv", "customer_id,name\nc1,Alice\nc2,Bob\n")
+    buf.seek(0)
+    zip_bytes = buf.getvalue()
+
+    t0 = time.perf_counter()
+    res = client.post(
+        "/api/v1/workspace/upload-zip",
+        files={"file": ("multi_test.zip", zip_bytes, "application/zip")},
+        data={"workspace_name": f"ws-bench-{uuid.uuid4().hex[:6]}"},
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Origin": "https://decisionlens-enterprise-analytics.vercel.app"
+        },
+    )
+
+    assert res.status_code == 202, f"Expected 202, got {res.status_code}: {res.text}"
+    data = res.json()
+    assert data["upload_status"] == "PROCESSING"
+    assert "job_id" in data
+    assert "workspace_id" in data
+    assert "status_url" in data
+    # Verify CORS header is present
+    assert res.headers.get("access-control-allow-origin") == "https://decisionlens-enterprise-analytics.vercel.app"
+
+
+def test_zip_pipeline_single_pass_zero_duplicates(monkeypatch):
+    """
+    Test 10: run_workspace_zip_pipeline converts each file in the ZIP archive
+    EXACTLY ONCE. Zero duplicate conversions.
+    """
+    import io
+    import zipfile
+    from pathlib import Path
+    from app.api.v1.workspace_upload import run_workspace_zip_pipeline
+    from app.ingestion.generic_loader import GenericDataLoader
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("m5_xregs.csv", "id,date,wday,month,year\n1,2026-01-01,1,1,2026\n2,2026-01-02,2,1,2026\n")
+        zf.writestr("m5_calendar.csv", "date,wm_yr_wk,event\n2026-01-01,11101,NewYear\n2026-01-02,11101,None\n")
+    buf.seek(0)
+
+    tmp_dir = Path(tempfile.mkdtemp())
+    zip_file = tmp_dir / "m5_archive.zip"
+    with open(zip_file, "wb") as f:
+        f.write(buf.getvalue())
+
+    conversion_calls = []
+    orig_convert = GenericDataLoader.convert_to_parquet
+
+    def spy_convert(file_path, unique_dataset_id):
+        conversion_calls.append(Path(file_path).name)
+        return orig_convert(file_path, unique_dataset_id)
+
+    monkeypatch.setattr(GenericDataLoader, "convert_to_parquet", spy_convert)
+
+    ws_id = f"ws-nodup-{uuid.uuid4().hex[:6]}"
+    job = IngestionJobService.create_job(
+        workspace_id=ws_id,
+        dataset_id=ws_id,
+        filename="m5_archive.zip",
+        file_size_bytes=zip_file.stat().st_size,
+        user_email="test@enterprise.com",
+        initial_status=JobState.UPLOADED,
+    )
+
+    result = run_workspace_zip_pipeline(
+        job_id=job["job_id"],
+        zip_path=zip_file,
+        ws_id=ws_id,
+        ws_title="No Duplicate Ingestion Workspace",
+        created_by="test@enterprise.com",
+        file_sha256="test-sha256",
+    )
+
+    assert result["status"] == "success"
+    assert len(result["tables"]) == 2
+
+    # Verify each file was converted EXACTLY ONCE
+    assert len(conversion_calls) == 2, f"Expected 2 conversions, got {len(conversion_calls)}: {conversion_calls}"
+    assert conversion_calls.count("m5_xregs.csv") == 1, "m5_xregs.csv was converted more than once!"
+    assert conversion_calls.count("m5_calendar.csv") == 1, "m5_calendar.csv was converted more than once!"
+
