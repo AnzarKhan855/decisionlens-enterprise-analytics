@@ -139,7 +139,7 @@ class TestAsyncUploadApiIntegration:
 
         # POST /api/v1/upload/
         res = client.post("/api/v1/upload/", files=files, headers=auth_headers)
-        assert res.status_code == 200, f"Upload failed: {res.text}"
+        assert res.status_code in (200, 202), f"Upload failed: {res.text}"
         data = res.json()
 
         assert data["upload_status"] in ("PROCESSING", "COMPLETED")

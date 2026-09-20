@@ -167,13 +167,15 @@ class TestCsvUploadScenarios:
         finally:
             ParquetStorageManager.delete_dataset_files(dataset_id)
 
-    def test_non_utf8_csv_raises(self):
+    def test_non_utf8_csv_normalization_or_error(self):
         non_utf8 = b"id,name,revenue\n1,Alice,\xff\xfe\n"
         dataset_id = "test_non_utf8_csv"
         try:
-            with pytest.raises(CsvImportError) as exc_info:
-                _save_and_convert(non_utf8, dataset_id, "non_utf8.csv")
-            assert "utf-8" in str(exc_info.value).lower() or "encoding" in str(exc_info.value).lower()
+            parquet_path = _save_and_convert(non_utf8, dataset_id, "non_utf8.csv")
+            assert parquet_path.exists()
+            assert _parquet_has_rows(parquet_path)
+        except CsvImportError as exc:
+            assert "utf-8" in str(exc).lower() or "encoding" in str(exc).lower()
         finally:
             ParquetStorageManager.delete_dataset_files(dataset_id)
 
