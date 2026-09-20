@@ -93,24 +93,51 @@ export type ErrorCategory =
   | "CLIENT_ERROR"
   | "UNKNOWN_ERROR";
 
+export function extractErrorMessage(data: any, fallback = "An unexpected error occurred."): string {
+  if (!data) return fallback;
+  if (typeof data === "string") return data;
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail)) {
+    return data.detail.map((item: any) => {
+      if (typeof item === "string") return item;
+      const loc = item.loc ? `[${item.loc.join(".")}] ` : "";
+      return `${loc}${item.msg || item.message || JSON.stringify(item)}`;
+    }).join("; ");
+  }
+  if (data.detail && typeof data.detail === "object") {
+    const d = data.detail;
+    if (d.message) {
+      const fix = d.suggested_fix || d.recovery_suggestion;
+      return fix ? `${d.message} (${fix})` : d.message;
+    }
+    return JSON.stringify(d);
+  }
+  if (typeof data.message === "string") {
+    const fix = data.suggested_fix || data.recovery_suggestion;
+    return fix ? `${data.message} (${fix})` : data.message;
+  }
+  if (typeof data.error === "string") return data.error;
+  if (data.error && typeof data.error === "object") {
+    if (data.error.message) {
+      const fix = data.error.suggested_fix;
+      return fix ? `${data.error.message} (${fix})` : data.error.message;
+    }
+    return JSON.stringify(data.error);
+  }
+  return fallback;
+}
+
 api.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
     const status = error.response?.status;
-    const detail = error.response?.data?.detail || error.response?.data?.message || "";
-    const detailLower = typeof detail === "string" ? detail.toLowerCase() : "";
+    const rawData = error.response?.data;
+    const cleanErrorMsg = extractErrorMessage(rawData, "");
+    const detailLower = cleanErrorMsg.toLowerCase();
 
-    if (error.code === "ECONNABORTED" || (error.message && error.message.toLowerCase().includes("timeout"))) {
-      error.errorCategory = "TIMEOUT" as ErrorCategory;
-      error.userFriendlyMessage = "The request timed out while waiting for the server to process data.";
-      error.message = "The request timed out. Please check your network connection and try again.";
-    } else if (!error.response) {
-      error.errorCategory = "NETWORK_ERROR" as ErrorCategory;
-      error.userFriendlyMessage = "Unable to connect to the DecisionLens API. Please verify network connectivity.";
-      error.message = "Unable to connect to the server. Please ensure the backend is running.";
-    } else if (status === 401) {
+    if (status === 401) {
       error.errorCategory = "AUTH_ERROR" as ErrorCategory;
       const reqUrl = error.config?.url || "";
       const isAuthEndpoint = reqUrl.includes("/auth/login") || reqUrl.includes("/auth/register") || reqUrl.includes("/auth/forgot-password") || reqUrl.includes("/auth/reset-password") || reqUrl.includes("/auth/verify-otp");
@@ -127,31 +154,36 @@ api.interceptors.response.use(
         window.location.href = `/login${redirectParam}`;
       }
 
-      if (isAuthEndpoint) {
-        error.message = error.response?.data?.detail || error.response?.data?.message || "Invalid credentials or authentication request failed.";
-      } else {
-        error.message = "Session expired. Please sign in again.";
-      }
+      error.message = cleanErrorMsg || (isAuthEndpoint ? "Invalid credentials or authentication request failed." : "Session expired. Please sign in again.");
       error.userFriendlyMessage = error.message;
     } else if (status === 403) {
       error.errorCategory = "FORBIDDEN" as ErrorCategory;
-      error.userFriendlyMessage = typeof detail === "string" && detail ? detail : "Access Denied: You do not have permission for this action.";
+      error.userFriendlyMessage = cleanErrorMsg || "Access Denied: You do not have permission for this action.";
       error.message = error.userFriendlyMessage;
     } else if (status === 404) {
       error.errorCategory = "NOT_FOUND" as ErrorCategory;
-      error.userFriendlyMessage = "The requested resource or workspace was not found.";
+      error.userFriendlyMessage = cleanErrorMsg || "The requested resource or workspace was not found.";
       error.message = error.userFriendlyMessage;
-    } else if (status === 422 || (status === 400 && (detailLower.includes("processing") || detailLower.includes("dataset") || detailLower.includes("ingestion")))) {
+    } else if (status === 422 || (status === 400 && (detailLower.includes("processing") || detailLower.includes("dataset") || detailLower.includes("ingestion") || detailLower.includes("csv") || detailLower.includes("encoding")))) {
       error.errorCategory = "DATASET_PROCESSING" as ErrorCategory;
-      error.userFriendlyMessage = typeof detail === "string" && detail ? detail : "Dataset processing error. Please verify file format and columns.";
+      error.userFriendlyMessage = cleanErrorMsg || "Dataset processing error. Please verify file format and columns.";
       error.message = error.userFriendlyMessage;
+    } else if (error.code === "ECONNABORTED" || (error.message && error.message.toLowerCase().includes("timeout"))) {
+      error.errorCategory = "TIMEOUT" as ErrorCategory;
+      error.userFriendlyMessage = "The request timed out while waiting for the server to process data.";
+      error.message = "The request timed out. Please check your network connection and try again.";
+    } else if (!error.response) {
+      error.errorCategory = "NETWORK_ERROR" as ErrorCategory;
+      error.userFriendlyMessage = "Unable to connect to the DecisionLens API. Please verify network connectivity.";
+      error.message = "Unable to connect to the server. Please ensure the backend is running.";
     } else if (status && status >= 500) {
       error.errorCategory = "SERVER_ERROR" as ErrorCategory;
-      error.userFriendlyMessage = "An internal server error occurred. Please try again later.";
+      error.userFriendlyMessage = cleanErrorMsg || "An internal server error occurred. Please try again later.";
       error.message = error.userFriendlyMessage;
     } else {
       error.errorCategory = "CLIENT_ERROR" as ErrorCategory;
-      error.userFriendlyMessage = typeof detail === "string" && detail ? detail : "Request failed.";
+      error.userFriendlyMessage = cleanErrorMsg || "Request failed.";
+      error.message = error.userFriendlyMessage;
     }
 
     if (error.response?.data && !error.response.data.detail && error.response.data.reason) {

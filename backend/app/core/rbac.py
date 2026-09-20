@@ -113,11 +113,26 @@ def get_current_user_from_token(authorization: Optional[str] = Header(None)) -> 
     if email and email.lower() == settings.SUPER_ADMIN_EMAIL.lower():
         role = SUPER_ADMIN
 
+    user_id = payload.get("user_id") or payload.get("id")
+    if not user_id and email:
+        try:
+            from app.database.connection import SessionLocal
+            from app.database.crud import get_user_by_email
+            with SessionLocal() as db:
+                db_u = get_user_by_email(db, email)
+                if db_u:
+                    user_id = db_u.id
+        except Exception:
+            pass
+
     return {
+        "id": user_id,
+        "user_id": user_id,
         "email": email,
         "full_name": payload.get("full_name", email.split("@")[0].title() if email else "User"),
         "role": role,
-        "tenant_id": payload.get("tenant_id", "company_enterprise_default")
+        "tenant_id": payload.get("tenant_id", f"tenant-{email.split('@')[0]}" if email else "company_enterprise_default"),
+        "organization": payload.get("organization") or payload.get("tenant_id") or "Enterprise Corp",
     }
 
 

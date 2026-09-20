@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { activateAndSyncWorkspace } from "@/lib/workspace-resolver";
-import { invalidateCache } from "@/lib/api";
+import { invalidateCache, extractErrorMessage } from "@/lib/api";
 
 export default function UploadCard() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -152,7 +152,7 @@ export default function UploadCard() {
       if (error.response?.status === 401) {
         setErrorMsg("Session expired or authentication required. Please log in again.");
       } else {
-        setErrorMsg(error.response?.data?.detail || "Failed to process dataset files. Please check file formats.");
+        setErrorMsg(extractErrorMessage(error.response?.data, error.userFriendlyMessage || error.message || "Failed to process dataset files. Please check file formats."));
       }
     }
   }

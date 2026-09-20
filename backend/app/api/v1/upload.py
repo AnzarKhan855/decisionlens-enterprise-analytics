@@ -221,10 +221,14 @@ def upload_dataset(
             user=user,
             sync=sync,
         )
-        return {
-            "message": "Dataset upload accepted. Ingestion in progress.",
-            **res
-        }
+        status_code = 202 if res.get("upload_status") == "PROCESSING" else 200
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "message": "Dataset upload accepted. Ingestion in progress." if status_code == 202 else "Dataset uploaded and processed successfully.",
+                **res
+            }
+        )
     except HTTPException as http_err:
         raise http_err
     except Exception as exc:
@@ -282,6 +286,7 @@ def upload_multiple_datasets(
 
 @router.get("/status/{job_id}")
 @router.get("/job/{job_id}")
+@router.get("/job/{job_id}/status")
 def get_job_status(job_id: str):
     """
     Queries real-time job status, progress percentage, current stage, and metrics.

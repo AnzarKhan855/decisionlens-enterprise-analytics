@@ -1,11 +1,45 @@
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from app.database.models import Dataset, User, OTPToken, PasswordResetToken
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
+from app.logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    return db.query(User).filter(User.email == email.lower()).first()
+    email_clean = email.lower().strip()
+    # 1. Check local SQLite / PostgreSQL first
+    user = db.query(User).filter(User.email == email_clean).first()
+    if user:
+        return user
+
+    # 2. Check durable MongoDB store (survives container cold-starts and redeploys)
+    try:
+        from app.database.mongodb import users as mongo_users
+        doc = mongo_users.find_one({"email": email_clean})
+        if doc:
+            stored_id = doc.get("user_id") or doc.get("id")
+            user = User(
+                email=doc["email"],
+                hashed_password=doc["hashed_password"],
+                full_name=doc.get("full_name", "Enterprise User"),
+                role=doc.get("role", "EMPLOYEE"),
+                organization=doc.get("organization", "Enterprise Corp"),
+            )
+            if stored_id and isinstance(stored_id, int):
+                user.id = stored_id
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            if doc.get("user_id") != user.id or doc.get("id") != user.id:
+                mongo_users.update_one({"email": email_clean}, {"$set": {"user_id": user.id, "id": user.id}})
+            logger.info("[AUTH DB] Re-hydrated user %s from MongoDB into local database (id=%s)", email_clean, user.id)
+            return user
+    except Exception as mongo_err:
+        logger.debug("[MongoDB User Lookup Warning] %s", mongo_err)
+
+    return None
 
 
 def create_user(
@@ -16,27 +50,78 @@ def create_user(
     role: str = "EMPLOYEE",
     organization: str = "Enterprise Corp"
 ) -> User:
-    user = User(
-        email=email.lower(),
-        hashed_password=hashed_password,
-        full_name=full_name,
-        role=role,
-        organization=organization
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    email_clean = email.lower().strip()
+    user = db.query(User).filter(User.email == email_clean).first()
+    if not user:
+        user = User(
+            email=email_clean,
+            hashed_password=hashed_password,
+            full_name=full_name,
+            role=role,
+            organization=organization
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        user.hashed_password = hashed_password
+        user.full_name = full_name
+        user.role = role
+        user.organization = organization
+        db.commit()
+        db.refresh(user)
+
+    # Persist durably in MongoDB Atlas
+    try:
+        from app.database.mongodb import users as mongo_users
+        now_iso = datetime.now(timezone.utc).isoformat()
+        mongo_users.update_one(
+            {"email": email_clean},
+            {
+                "$set": {
+                    "id": user.id,
+                    "user_id": user.id,
+                    "email": email_clean,
+                    "hashed_password": hashed_password,
+                    "full_name": full_name,
+                    "role": role,
+                    "organization": organization,
+                    "updated_at": now_iso,
+                },
+                "$setOnInsert": {
+                    "created_at": now_iso,
+                }
+            },
+            upsert=True
+        )
+        logger.info("[AUTH DB] Persisted user %s to durable MongoDB store (id=%s)", email_clean, user.id)
+    except Exception as mongo_err:
+        logger.warning("[MongoDB Auth Persistence Warning] Failed to persist user to MongoDB: %s", mongo_err)
+
     return user
 
 
 def update_user_password(db: Session, email: str, new_hashed_password: str) -> bool:
-    user = db.query(User).filter(User.email == email.lower()).first()
+    email_clean = email.lower().strip()
+    user = get_user_by_email(db, email_clean)
+    success = False
     if user:
         user.hashed_password = new_hashed_password
         db.commit()
         db.refresh(user)
-        return True
-    return False
+        success = True
+
+    try:
+        from app.database.mongodb import users as mongo_users
+        mongo_users.update_one(
+            {"email": email_clean},
+            {"$set": {"hashed_password": new_hashed_password, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        success = True
+    except Exception as mongo_err:
+        logger.warning("[MongoDB Password Update Warning] %s", mongo_err)
+
+    return success
 
 
 def save_dataset(
@@ -48,13 +133,48 @@ def save_dataset(
     columns: int,
     file_type: str,
     user_id: Optional[int] = None,
+    user_email: Optional[str] = None,
     file_size_bytes: int = 0
 ):
+    # 1. If user_id is missing but email is provided, resolve directly
+    if user_id is None and user_email:
+        resolved_user = get_user_by_email(db, user_email)
+        if resolved_user:
+            user_id = resolved_user.id
+
+    # 2. If user_id is still missing, fallback to existing local user
     if user_id is None:
-        from app.database.models import User
         first_user = db.query(User).first()
         if first_user:
             user_id = first_user.id
+        else:
+            # Check MongoDB for any durable user to re-hydrate
+            try:
+                from app.database.mongodb import users as mongo_users
+                m_doc = mongo_users.find_one({})
+                if m_doc:
+                    rehydrated = get_user_by_email(db, m_doc["email"])
+                    if rehydrated:
+                        user_id = rehydrated.id
+            except Exception:
+                pass
+
+    # 3. If database has zero users (e.g. fresh ephemeral start), auto-seed system user so user_id is NEVER null
+    if user_id is None:
+        from app.core.config import settings
+        from app.core.security import SecurityManager
+        admin_email = settings.SUPER_ADMIN_EMAIL.lower() if settings.SUPER_ADMIN_EMAIL else "admin@decisionlens.io"
+        admin_pwd = settings.SUPER_ADMIN_PASSWORD or "admin123"
+        seeded = create_user(
+            db,
+            email=admin_email,
+            hashed_password=SecurityManager.hash_password(admin_pwd),
+            full_name="Super Administrator",
+            role="SUPER_ADMIN",
+            organization="DecisionLens Enterprise"
+        )
+        user_id = seeded.id
+        logger.info("[save_dataset] Auto-seeded admin user (id=%s) to satisfy NOT NULL constraint", user_id)
 
     dataset = Dataset(
         user_id=user_id,

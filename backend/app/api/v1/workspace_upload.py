@@ -279,7 +279,9 @@ async def upload_workspace_zip(
                     rows=row_cnt,
                     columns=len(cols),
                     file_type=df_path.suffix.lstrip(".").lower(),
-                    file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0
+                    file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0,
+                    user_id=user.get("id") or user.get("user_id") if user else None,
+                    user_email=user.get("email") if user else None,
                 )
             except Exception as e:
                 logger.warning("[Workspace DB Save Warning] %s", e)
@@ -296,6 +298,8 @@ async def upload_workspace_zip(
                             "columns": len(cols),
                             "file_type": df_path.suffix.lstrip(".").lower(),
                             "workspace_id": ws_id,
+                            "user_id": user.get("id") or user.get("user_id") if user else None,
+                            "user_email": user.get("email") if user else None,
                             "uploaded_at": datetime.now(UTC).isoformat(),
                         }
                     },

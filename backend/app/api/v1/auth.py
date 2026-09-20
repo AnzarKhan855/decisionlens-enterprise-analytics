@@ -22,8 +22,10 @@ logger = get_logger(__name__)
 class UserRegisterRequest(BaseModel):
     email: str
     password: str
-    full_name: str
+    full_name: Optional[str] = None
+    name: Optional[str] = None
     organization: Optional[str] = None
+    organization_name: Optional[str] = None
     role: Optional[str] = EMPLOYEE
 
 
@@ -177,6 +179,8 @@ def _get_or_create_user(email: str, password_fallback: Optional[str] = None, rol
 
         if db_user:
             user_record = {
+                "id": db_user.id,
+                "user_id": db_user.id,
                 "email": db_user.email,
                 "full_name": db_user.full_name,
                 "password_hash": db_user.hashed_password,
@@ -230,13 +234,14 @@ def register_user(body: UserRegisterRequest):
     finally:
         db.close()
 
-    org_name = (body.organization or "").strip() or "Default Organization"
+    full_name_clean = (body.full_name or body.name or email_clean.split("@")[0]).strip()
+    org_name = (body.organization or body.organization_name or "").strip() or "Default Organization"
     assigned_role = SUPER_ADMIN if email_clean == settings.SUPER_ADMIN_EMAIL.lower() else normalize_role(body.role)
     hashed = SecurityManager.hash_password(body.password)
 
     user_record = {
         "email": email_clean,
-        "full_name": body.full_name,
+        "full_name": full_name_clean,
         "password_hash": hashed,
         "role": assigned_role,
         "organization": org_name,
@@ -245,7 +250,7 @@ def register_user(body: UserRegisterRequest):
 
     db = SessionLocal()
     try:
-        new_user = create_user(db, email_clean, hashed, body.full_name, role=assigned_role, organization=org_name)
+        new_user = create_user(db, email_clean, hashed, full_name_clean, role=assigned_role, organization=org_name)
         if not new_user or not new_user.id:
             raise HTTPException(status_code=500, detail="Database verification failed: User object missing ID.")
         logger.info(f"[REGISTER VERIFIED] User persisted in DB: id={new_user.id}, email={new_user.email}, role={new_user.role}")
@@ -291,11 +296,13 @@ def register_user(body: UserRegisterRequest):
     # For ORGANIZATION_ADMIN and EMPLOYEE -> Immediate JWT registration/login (No OTP)
     access_token = SecurityManager.create_access_token({
         "sub": user_record["email"],
+        "user_id": new_user.id,
+        "id": new_user.id,
         "role": assigned_role,
         "full_name": user_record["full_name"],
         "tenant_id": user_record["tenant_id"]
     })
-    refresh_token = SecurityManager.create_access_token({"sub": user_record["email"], "type": "refresh"})
+    refresh_token = SecurityManager.create_access_token({"sub": user_record["email"], "user_id": new_user.id, "type": "refresh"})
 
     return {
         "message": "User registered successfully.",
@@ -304,6 +311,8 @@ def register_user(body: UserRegisterRequest):
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
+            "id": new_user.id,
+            "user_id": new_user.id,
             "email": user_record["email"],
             "full_name": user_record["full_name"],
             "role": assigned_role,
@@ -365,13 +374,16 @@ def login_user(body: UserLoginRequest):
         }
 
     # For ORGANIZATION_ADMIN and EMPLOYEE -> Immediate JWT login (No OTP)
+    resolved_id = user.get("id") or user.get("user_id")
     access_token = SecurityManager.create_access_token({
         "sub": user["email"],
+        "user_id": resolved_id,
+        "id": resolved_id,
         "role": user_role,
         "full_name": user.get("full_name", email_clean.split("@")[0].title()),
         "tenant_id": user.get("tenant_id", "tenant-001")
     })
-    refresh_token = SecurityManager.create_access_token({"sub": user["email"], "type": "refresh"})
+    refresh_token = SecurityManager.create_access_token({"sub": user["email"], "user_id": resolved_id, "type": "refresh"})
 
     return {
         "message": "Authentication Successful.",
@@ -380,6 +392,8 @@ def login_user(body: UserLoginRequest):
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
+            "id": resolved_id,
+            "user_id": resolved_id,
             "email": user["email"],
             "full_name": user.get("full_name"),
             "role": user_role,
@@ -419,14 +433,17 @@ def verify_otp_code(body: OTPVerifyRequest):
         raise HTTPException(status_code=404, detail="User not found. Please register first.")
 
     user_role = SUPER_ADMIN if email_clean == settings.SUPER_ADMIN_EMAIL.lower() else normalize_role(user.get("role"))
+    resolved_id = user.get("id") or user.get("user_id")
 
     access_token = SecurityManager.create_access_token({
         "sub": user["email"],
+        "user_id": resolved_id,
+        "id": resolved_id,
         "role": user_role,
         "full_name": user.get("full_name"),
         "tenant_id": user.get("tenant_id", "tenant-superadmin")
     })
-    refresh_token = SecurityManager.create_access_token({"sub": user["email"], "type": "refresh"})
+    refresh_token = SecurityManager.create_access_token({"sub": user["email"], "user_id": resolved_id, "type": "refresh"})
 
     try:
         ResendEmailService.send_welcome_email(user["email"], user["full_name"])
@@ -439,8 +456,10 @@ def verify_otp_code(body: OTPVerifyRequest):
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
+            "id": resolved_id,
+            "user_id": resolved_id,
             "email": user["email"],
-            "full_name": user["full_name"],
+            "full_name": user.get("full_name"),
             "role": user_role,
             "tenant_id": user.get("tenant_id", "tenant-superadmin")
         }
@@ -469,19 +488,24 @@ def refresh_access_token(body: RefreshTokenRequest):
 
     user_role = SUPER_ADMIN if email.lower() == settings.SUPER_ADMIN_EMAIL.lower() else normalize_role(user.get("role"))
 
+    resolved_id = user.get("id") or user.get("user_id")
     access_token = SecurityManager.create_access_token({
         "sub": user["email"],
+        "user_id": resolved_id,
+        "id": resolved_id,
         "role": user_role,
         "full_name": user.get("full_name"),
         "tenant_id": user.get("tenant_id", "tenant-001")
     })
-    refresh_token = SecurityManager.create_access_token({"sub": user["email"], "type": "refresh"})
+    refresh_token = SecurityManager.create_access_token({"sub": user["email"], "user_id": resolved_id, "type": "refresh"})
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
+            "id": resolved_id,
+            "user_id": resolved_id,
             "email": user["email"],
             "full_name": user.get("full_name"),
             "role": user_role,

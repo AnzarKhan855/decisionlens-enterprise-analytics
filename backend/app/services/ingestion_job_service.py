@@ -67,6 +67,8 @@ class IngestionJobService:
         filename: str,
         file_size_bytes: int = 0,
         user_email: str = "",
+        user_id: Optional[int] = None,
+        organization_id: Optional[str] = None,
         initial_status: JobState = JobState.UPLOADED,
     ) -> Dict[str, Any]:
         """Creates a new durable ingestion job and persists it to MongoDB and memory."""
@@ -80,10 +82,16 @@ class IngestionJobService:
             "dataset_id": dataset_id,
             "filename": filename,
             "file_size_bytes": file_size_bytes,
+            "user_id": user_id,
             "user_email": user_email,
+            "organization_id": organization_id or "",
             "status": initial_status.value,
+            "stage": initial_status.value,
             "current_stage": initial_status.value,
+            "progress": pct,
             "progress_pct": pct,
+            "rows_processed": 0,
+            "total_rows": 0,
             "message": msg,
             "created_at": now,
             "updated_at": now,
@@ -233,11 +241,24 @@ class IngestionJobService:
         return job_copy
 
     @classmethod
+    def _normalize_job_dict(cls, job: Dict[str, Any]) -> Dict[str, Any]:
+        j = job.copy()
+        pct = j.get("progress_pct", j.get("progress", 0))
+        j["progress"] = pct
+        j["progress_pct"] = pct
+        j["stage"] = j.get("current_stage", j.get("stage", j.get("status", "")))
+        j["current_stage"] = j["stage"]
+        metrics = j.get("metrics") or {}
+        j["rows_processed"] = metrics.get("rows", j.get("rows_processed", 0))
+        j["total_rows"] = metrics.get("rows", j.get("total_rows", 0))
+        return j
+
+    @classmethod
     def get_job(cls, job_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves a job by ID from local cache or MongoDB."""
         with cls._lock:
             if job_id in cls._jobs_cache:
-                return cls._jobs_cache[job_id].copy()
+                return cls._normalize_job_dict(cls._jobs_cache[job_id])
 
         coll = cls._get_mongo_collection()
         if coll is not None:
@@ -247,7 +268,7 @@ class IngestionJobService:
                     doc.pop("_id", None)
                     with cls._lock:
                         cls._jobs_cache[job_id] = doc
-                    return doc
+                    return cls._normalize_job_dict(doc)
             except Exception as exc:
                 logger.warning("[IngestionJobService] Failed to query job %s: %s", job_id, exc)
 
@@ -260,7 +281,7 @@ class IngestionJobService:
             matching = [j for j in cls._jobs_cache.values() if j.get("workspace_id") == workspace_id]
             if matching:
                 matching.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-                return matching[0].copy()
+                return cls._normalize_job_dict(matching[0])
 
         coll = cls._get_mongo_collection()
         if coll is not None:
@@ -271,7 +292,7 @@ class IngestionJobService:
                     doc.pop("_id", None)
                     with cls._lock:
                         cls._jobs_cache[doc["job_id"]] = doc
-                    return doc
+                    return cls._normalize_job_dict(doc)
             except Exception as exc:
                 logger.warning("[IngestionJobService] Failed to find job for ws %s: %s", workspace_id, exc)
 
@@ -287,6 +308,35 @@ class IngestionJobService:
             return False
         cls.update_job(job_id, JobState.CANCELLED, progress_pct=100, message="Ingestion cancelled by user.")
         return True
+
+    @classmethod
+    def claim_job_for_processing(cls, job_id: str) -> bool:
+        """
+        Atomically claims a job for processing.
+        Returns True if claim succeeded, False if already claimed or completed.
+        """
+        coll = cls._get_mongo_collection()
+        if coll is not None:
+            try:
+                res = coll.find_one_and_update(
+                    {"job_id": job_id, "status": {"$in": [JobState.CREATED.value, JobState.UPLOADED.value, "queued", "UPLOADED"]}},
+                    {"$set": {"status": JobState.PROCESSING.value, "claimed_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                if res is not None:
+                    with cls._lock:
+                        if job_id in cls._jobs_cache:
+                            cls._jobs_cache[job_id]["status"] = JobState.PROCESSING.value
+                    return True
+                return False
+            except Exception as e:
+                logger.warning("[claim_job_for_processing] Mongo error: %s", e)
+
+        with cls._lock:
+            job = cls._jobs_cache.get(job_id)
+            if job and job.get("status") in (JobState.CREATED.value, JobState.UPLOADED.value, "queued", "UPLOADED"):
+                job["status"] = JobState.PROCESSING.value
+                return True
+            return False
 
     @classmethod
     def run_pipeline(
@@ -314,6 +364,14 @@ class IngestionJobService:
             if job and job.get("status") == JobState.CANCELLED.value:
                 logger.info("[IngestionPipeline] Job %s was cancelled before execution.", job_id)
                 return job
+
+            # Atomic job claim to prevent duplicate execution across multiple workers/threads
+            claimed = cls.claim_job_for_processing(job_id)
+            if not claimed:
+                current_job = cls.get_job(job_id)
+                if current_job and current_job.get("status") in (JobState.PROCESSING.value, JobState.READY.value, JobState.COMPLETED.value):
+                    logger.info("[IngestionPipeline] Job %s is already claimed or completed. Skipping duplicate execution.", job_id)
+                    return current_job
 
             # ------------------------------------------------------------------
             # Stage 1: VALIDATING
@@ -364,7 +422,11 @@ class IngestionJobService:
             total_rows = semantic_profile.get("total_rows", 0)
             total_cols = semantic_profile.get("total_columns", 0)
 
-            # Register dataset row in SQLite metadata
+            # Register dataset row in SQLite metadata with explicit user context
+            resolved_user_id = user.get("id") or user.get("user_id") if user else None
+            user_email = user.get("email", "") if user else (job.get("user_email", "") if job else "")
+            file_sz = raw_file_path.stat().st_size if raw_file_path.exists() else 0
+
             db = None
             try:
                 from app.database.connection import SessionLocal
@@ -378,12 +440,40 @@ class IngestionJobService:
                     rows=total_rows,
                     columns=total_cols,
                     file_type=extension.replace(".", ""),
+                    user_id=resolved_user_id,
+                    user_email=user_email,
+                    file_size_bytes=file_sz,
                 )
             except Exception as db_err:
                 logger.warning("[IngestionPipeline] SQLite dataset registration warning: %s", db_err)
             finally:
                 if db is not None:
                     db.close()
+
+            # Mirror dataset registration to durable MongoDB Atlas
+            try:
+                from app.database.mongodb import datasets as mongo_datasets
+                mongo_datasets.update_one(
+                    {"file_path": str(parquet_path)},
+                    {
+                        "$set": {
+                            "filename": filename,
+                            "file_path": str(parquet_path),
+                            "dataset_type": dataset_type,
+                            "rows": total_rows,
+                            "columns": total_cols,
+                            "file_type": extension.replace(".", ""),
+                            "workspace_id": workspace_id,
+                            "user_id": resolved_user_id,
+                            "user_email": user_email,
+                            "file_size_bytes": file_sz,
+                            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    },
+                    upsert=True
+                )
+            except Exception as mongo_ds_err:
+                logger.warning("[IngestionPipeline] MongoDB dataset registration warning: %s", mongo_ds_err)
 
             timings["profiling_ms"] = round((time.perf_counter() - t0) * 1000, 2)
 

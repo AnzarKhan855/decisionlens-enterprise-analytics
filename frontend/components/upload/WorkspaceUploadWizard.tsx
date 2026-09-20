@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { activateAndSyncWorkspace } from "@/lib/workspace-resolver";
-import { invalidateCache } from "@/lib/api";
+import { invalidateCache, extractErrorMessage } from "@/lib/api";
 import {
   uploadZipWorkspace, uploadFolderWorkspace,
   getWorkspaceProcessingStatus
@@ -121,7 +121,7 @@ export default function WorkspaceUploadWizard() {
       clearInterval(timerRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
       setUploading(false);
-      const msg = err.response?.data?.detail || err.response?.data?.message || err.message || "An error occurred during workspace ingestion.";
+      const msg = extractErrorMessage(err.response?.data, err.userFriendlyMessage || err.message || "An error occurred during workspace ingestion.");
       if (err.response?.status === 401) {
         setError("Session expired or authentication required. Please log in again to upload datasets.");
       } else {

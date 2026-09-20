@@ -30,8 +30,52 @@ SessionLocal = sessionmaker(
     bind=engine
 )
 
+def sync_users_from_mongodb():
+    """Synchronizes durable users from MongoDB Atlas into local SQLite / PostgreSQL on startup."""
+    try:
+        from app.database.mongodb import users as mongo_users
+        all_mongo_users = list(mongo_users.find({}))
+        if not all_mongo_users:
+            return 0
+
+        with SessionLocal() as db:
+            from app.database.models import User
+            synced_count = 0
+            for m_u in all_mongo_users:
+                email = m_u.get("email", "").lower().strip()
+                if not email or "@" not in email:
+                    continue
+                existing = db.query(User).filter(User.email == email).first()
+                if not existing:
+                    stored_id = m_u.get("user_id") or m_u.get("id")
+                    new_u = User(
+                        email=email,
+                        hashed_password=m_u.get("hashed_password", ""),
+                        full_name=m_u.get("full_name", "Enterprise User"),
+                        role=m_u.get("role", "EMPLOYEE"),
+                        organization=m_u.get("organization", "Enterprise Corp"),
+                    )
+                    if stored_id and isinstance(stored_id, int):
+                        new_u.id = stored_id
+                    db.add(new_u)
+                    db.commit()
+                    db.refresh(new_u)
+                    synced_count += 1
+                    if m_u.get("user_id") != new_u.id or m_u.get("id") != new_u.id:
+                        mongo_users.update_one({"email": email}, {"$set": {"user_id": new_u.id, "id": new_u.id}})
+            if synced_count > 0:
+                logger.info(f"[AUTH DB] Synchronized {synced_count} durable user(s) from MongoDB to local database.")
+            return synced_count
+    except Exception as sync_err:
+        logger.warning(f"[AUTH DB] User sync from MongoDB failed: {sync_err}")
+        return 0
+
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
+    # Sync durable users from MongoDB Atlas into local DB on startup
+    sync_users_from_mongodb()
 
     db_type = engine.name
     masked_url = str(engine.url).split('@')[-1] if '@' in str(engine.url) else str(engine.url)

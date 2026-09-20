@@ -148,23 +148,62 @@ def submit_job(req: JobSubmitRequest, background_tasks: BackgroundTasks):
 @router.get("/{job_id}")
 def get_job_details(job_id: str):
     with _jobs_lock:
-        if job_id not in _jobs_store:
-            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
-        return _jobs_store[job_id]
+        if job_id in _jobs_store:
+            return _jobs_store[job_id]
+
+    try:
+        from app.services.ingestion_job_service import IngestionJobService
+        ij = IngestionJobService.get_job(job_id)
+        if ij:
+            return ij
+    except Exception as e:
+        logger.debug("Failed to check IngestionJobService: %s", e)
+
+    raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
 
 
 @router.get("/{job_id}/status")
 def get_job_status(job_id: str):
     with _jobs_lock:
-        if job_id not in _jobs_store:
-            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
-        job = _jobs_store[job_id]
-        return {
-            "job_id": job_id,
-            "status": job["status"],
-            "progress_pct": job["progress_pct"],
-            "stage": job["stage"],
-            "stages": job.get("stages", []),
-            "error": job["error"],
-            "updated_at": job["updated_at"],
-        }
+        if job_id in _jobs_store:
+            job = _jobs_store[job_id]
+            return {
+                "job_id": job_id,
+                "status": job["status"],
+                "progress_pct": job["progress_pct"],
+                "stage": job["stage"],
+                "stages": job.get("stages", []),
+                "error": job["error"],
+                "updated_at": job["updated_at"],
+            }
+
+    try:
+        from app.services.ingestion_job_service import IngestionJobService
+        ij = IngestionJobService.get_job(job_id)
+        if ij:
+            return {
+                "job_id": job_id,
+                "status": ij.get("status", "processing"),
+                "progress_pct": ij.get("progress_pct", 0),
+                "stage": ij.get("current_stage") or ij.get("stage", ""),
+                "stages": ij.get("stages", []),
+                "error": ij.get("error"),
+                "updated_at": ij.get("updated_at"),
+            }
+    except Exception as e:
+        logger.debug("Failed to check IngestionJobService: %s", e)
+
+    raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+
+
+ingestion_router = APIRouter(prefix="/ingestion/jobs", tags=["Ingestion Jobs"])
+
+
+@ingestion_router.get("/{job_id}")
+def get_ingestion_job_status(job_id: str):
+    from app.services.ingestion_job_service import IngestionJobService
+    job = IngestionJobService.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    return job
+
