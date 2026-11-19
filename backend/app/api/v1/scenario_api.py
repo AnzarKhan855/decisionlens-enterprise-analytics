@@ -249,15 +249,22 @@ def simulate_scenario_alias(request: ScenarioSimulateRequest, dataset_id: Option
 
 
 @router.post("/simulate")
-def simulate_scenario_legacy(request: ScenarioRequest, dataset_id: Optional[str] = Query(None)):
+def simulate_scenario_legacy(
+    request: ScenarioRequest,
+    dataset_id: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None)
+):
     """
     Legacy scenario simulation endpoint (backward compatible).
     Falls back to StrategyDecisionEngine when possible, otherwise uses data-driven engine.
     """
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
-        workspace_id = _get_workspace_id(db, dataset_id)
+        target_ws = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id, target_ws)
+        if not parquet_path:
+            raise HTTPException(status_code=400, detail="No dataset uploaded to active workspace. Upload a dataset to run scenario simulation.")
+        workspace_id = _get_workspace_id(db, dataset_id, target_ws)
         profile = SemanticDataProfiler.profile(parquet_path)
 
         table_name = None
@@ -340,14 +347,18 @@ def simulate_scenario_get(
     shipping_reduction_pct: float = Query(0.0),
     return_rate_change_pct: float = Query(0.0),
     dataset_id: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None),
 ):
     """
     GET endpoint for scenario simulation (legacy, backward compatible).
     """
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
-        workspace_id = _get_workspace_id(db, dataset_id)
+        target_ws = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id, target_ws)
+        if not parquet_path:
+            raise HTTPException(status_code=400, detail="No dataset uploaded to active workspace. Upload a dataset to run scenario simulation.")
+        workspace_id = _get_workspace_id(db, dataset_id, target_ws)
         profile = SemanticDataProfiler.profile(parquet_path)
 
         try:

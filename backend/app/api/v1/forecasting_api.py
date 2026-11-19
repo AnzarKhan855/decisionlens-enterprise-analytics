@@ -23,12 +23,13 @@ router = APIRouter(
 )
 
 
-def _get_parquet_path(db, dataset_id: Optional[str] = None) -> Path:
-    if dataset_id and dataset_id != "latest":
-        direct = ParquetStorageManager.get_parquet_path(dataset_id)
+def _get_parquet_path(db, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None) -> Path:
+    target_id = workspace_id or dataset_id
+    if target_id and target_id != "latest":
+        direct = ParquetStorageManager.get_parquet_path(target_id)
         if direct and direct.exists():
             return direct
-        workspace_path = ParquetStorageManager.get_parquet_path_for_workspace(dataset_id)
+        workspace_path = ParquetStorageManager.get_parquet_path_for_workspace(target_id)
         if workspace_path and workspace_path.exists():
             return workspace_path
 
@@ -44,7 +45,9 @@ def _get_parquet_path(db, dataset_id: Optional[str] = None) -> Path:
     raise HTTPException(status_code=404, detail="No active business workspace found.")
 
 
-def _get_workspace_id(db, dataset_id: Optional[str] = None) -> str:
+def _get_workspace_id(db, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None) -> str:
+    if workspace_id:
+        return workspace_id
     if dataset_id and dataset_id != "latest":
         return dataset_id
     try:
@@ -62,13 +65,16 @@ def _get_workspace_id(db, dataset_id: Optional[str] = None) -> str:
 
 @router.get("/analytics/forecasting/detection")
 @router.get("/forecast/detection")
-def get_forecasting_column_detection(dataset_id: Optional[str] = Query(None)):
+def get_forecasting_column_detection(
+    dataset_id: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None)
+):
     """
     Returns deterministic column detection for Time, Quantity, Unit Price, and Revenue columns.
     """
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
+        parquet_path = _get_parquet_path(db, dataset_id=dataset_id, workspace_id=workspace_id)
         profile = SemanticDataProfiler.profile(parquet_path)
         from app.analytics.forecasting_detector import ForecastingColumnDetector
         return ForecastingColumnDetector.detect_columns(profile)
@@ -91,12 +97,13 @@ def get_forecasting_column_detection(dataset_id: Optional[str] = Query(None)):
 @router.get("/forecast")
 def get_time_series_forecast(
     dataset_id: Optional[str] = Query(None, description="Dataset ID"),
+    workspace_id: Optional[str] = Query(None, description="Workspace ID"),
     horizon: int = Query(14, ge=1, le=90, description="Forecast horizon period count")
 ):
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
-        ws_id = _get_workspace_id(db, dataset_id)
+        parquet_path = _get_parquet_path(db, dataset_id=dataset_id, workspace_id=workspace_id)
+        ws_id = _get_workspace_id(db, dataset_id=dataset_id, workspace_id=workspace_id)
         profile = SemanticDataProfiler.profile(parquet_path)
         if not profile or profile.get("total_rows", 0) < 3:
             return {
@@ -185,12 +192,13 @@ def get_time_series_forecast(
 @router.get("/segmentation")
 def get_customer_segmentation(
     dataset_id: Optional[str] = Query(None, description="Dataset ID"),
+    workspace_id: Optional[str] = Query(None, description="Workspace ID"),
     k_clusters: int = Query(3, ge=2, le=10, description="Cluster count")
 ):
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
-        ws_id = _get_workspace_id(db, dataset_id)
+        parquet_path = _get_parquet_path(db, dataset_id=dataset_id, workspace_id=workspace_id)
+        ws_id = _get_workspace_id(db, dataset_id=dataset_id, workspace_id=workspace_id)
 
         from app.services.analytics_cache_service import AnalyticsCacheService
         from app.schemas.analytics import AnalyticsResult

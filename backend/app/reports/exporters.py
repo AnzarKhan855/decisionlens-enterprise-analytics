@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from pathlib import Path
@@ -19,9 +20,9 @@ class PDFExporter:
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import inch
 
-            buffer = []
+            buffer = io.BytesIO()
             doc = SimpleDocTemplate(
-                "/tmp/decisionlens_report.pdf",
+                buffer,
                 pagesize=letter,
                 rightMargin=72,
                 leftMargin=72,
@@ -95,12 +96,16 @@ class PDFExporter:
                 if section_data is None:
                     continue
                 story.append(Paragraph(section_name.replace("_", " ").title(), heading_style))
-                story.append(PDFExporter._render_section_pdf(section_data, body_style))
+                rendered = PDFExporter._render_section_pdf(section_data, body_style)
+                if isinstance(rendered, list):
+                    story.extend(rendered)
+                elif rendered:
+                    story.append(rendered)
                 story.append(Spacer(1, 0.15 * inch))
 
             doc.build(story)
-            with open("/tmp/decisionlens_report.pdf", "rb") as f:
-                return f.read()
+            buffer.seek(0)
+            return buffer.getvalue()
         except Exception as e:
             logger.error("[PDFExporter] %s", e)
             raise RuntimeError(f"PDF export failed: {e}")
@@ -162,7 +167,7 @@ class PDFExporter:
 
 class DOCXExporter:
     @staticmethod
-    def export(report: Dict[str, Any], title: str = "DecisionLens Executive Report") -> bytes:
+    def export(report: Dict[str, Any], title: str = "DecisionLens Executive Report", **kwargs) -> bytes:
         try:
             from openpyxl import Workbook
             from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -230,10 +235,10 @@ class DOCXExporter:
             for col in range(1, 7):
                 ws.column_dimensions[get_column_letter(col)].width = 22
 
-            output_path = "/tmp/decisionlens_report.xlsx"
-            wb.save(output_path)
-            with open(output_path, "rb") as f:
-                return f.read()
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+            return buffer.getvalue()
         except Exception as e:
             logger.error("[DOCXExporter] %s", e)
             raise RuntimeError(f"DOCX export failed: {e}")
@@ -264,12 +269,13 @@ class DOCXExporter:
 
     @staticmethod
     def _write_dict_xlsx(ws, start_row: int, d: Dict[str, Any], font, border) -> int:
+        from openpyxl.styles import Font
         rows = 0
         for key, value in d.items():
             if value is None:
                 continue
             row = start_row + rows
-            ws.cell(row=row, column=1, value=str(key)).font = Font(bold=True)
+            ws.cell(row=row, column=1, value=str(key)).font = Font(name="Calibri", size=10, bold=True)
             ws.cell(row=row, column=1).border = border
             if isinstance(value, (dict, list)):
                 nested_rows = DOCXExporter._write_section_xlsx(ws, row, value, font, border)
@@ -287,7 +293,7 @@ class PPTXExporter:
         try:
             from pptx import Presentation
             from pptx.util import Inches, Pt
-            from pptx.dml.color import RgbColor
+            from pptx.dml.color import RGBColor
             from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
             from pptx.enum.shapes import MSO_SHAPE
 
@@ -304,7 +310,7 @@ class PPTXExporter:
             p = tf.paragraphs[0]
             p.font.size = Pt(36)
             p.font.bold = True
-            p.font.color.rgb = RgbColor(0x1A, 0x1A, 0x2E)
+            p.font.color.rgb = RGBColor(0x1A, 0x1A, 0x2E)
             p.alignment = PP_ALIGN.LEFT
 
             meta_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(12), Inches(1))
@@ -316,7 +322,7 @@ class PPTXExporter:
             )
             for paragraph in meta_tf.paragraphs:
                 paragraph.font.size = Pt(12)
-                paragraph.font.color.rgb = RgbColor(0x66, 0x66, 0x66)
+                paragraph.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
             sections = report.get("sections", {})
             section_order = [
@@ -340,7 +346,7 @@ class PPTXExporter:
                 hp = htf.paragraphs[0]
                 hp.font.size = Pt(24)
                 hp.font.bold = True
-                hp.font.color.rgb = RgbColor(0xE9, 0x45, 0x60)
+                hp.font.color.rgb = RGBColor(0xE9, 0x45, 0x60)
 
                 content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.0), Inches(12), Inches(6))
                 ctf = content_box.text_frame
@@ -354,13 +360,13 @@ class PPTXExporter:
                         p = ctf.add_paragraph()
                     p.text = line
                     p.font.size = Pt(11)
-                    p.font.color.rgb = RgbColor(0x33, 0x33, 0x33)
+                    p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
                     p.space_after = Pt(6)
 
-            output_path = "/tmp/decisionlens_report.pptx"
-            prs.save(output_path)
-            with open(output_path, "rb") as f:
-                return f.read()
+            buffer = io.BytesIO()
+            prs.save(buffer)
+            buffer.seek(0)
+            return buffer.getvalue()
         except Exception as e:
             logger.error("[PPTXExporter] %s", e)
             raise RuntimeError(f"PPTX export failed: {e}")
@@ -390,3 +396,6 @@ class PPTXExporter:
                 else:
                     lines.append(f"{key}: {value}")
         return lines
+
+
+XLSXExporter = DOCXExporter

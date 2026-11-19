@@ -101,6 +101,8 @@ export interface DashboardPayload {
   predictions?: PredictionItem[];
   health_score?: number;
   dataset_id?: string;
+  workspace_id?: string;
+  action_items?: ActionItem[];
   dataset_type?: string;
   profile?: DatasetProfile;
   is_lookup_only?: boolean;

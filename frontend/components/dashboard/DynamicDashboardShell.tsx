@@ -238,6 +238,9 @@ export default function DynamicDashboardShell() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [bgStatus, setBgStatus] = useState<{ status: string; current_step?: string; progress: number } | null>(null);
 
+  const isLoadingRef = React.useRef(false);
+  const dashboardLoadedRef = React.useRef(false);
+
   const loadingStages = useMemo(() => [
     "Connecting to data warehouse...",
     "Understanding your dataset...",
@@ -247,70 +250,89 @@ export default function DynamicDashboardShell() {
     "Preparing executive report...",
   ], []);
 
-  const doLoad = useCallback(async () => {
+  const doLoad = useCallback(async (force = false) => {
+    if (isLoadingRef.current && !force) return;
+    isLoadingRef.current = true;
     try {
       setLoading(true);
       setError(null);
-      setLoadingStage(0);
-      let activeWsId = typeof window !== "undefined"
+      setLoadingStage(1);
+      const activeWsId = typeof window !== "undefined"
         ? localStorage.getItem("decisionlens_active_workspace")
         : null;
 
-      if (!activeWsId) {
-        setLoadingStage(1);
-        const res = await api.get("/workspace/active").catch(() => null);
-        const foundId = res?.data?.workspace?.workspace_id || res?.data?.workspace_id;
-        if (foundId) {
-          activeWsId = foundId;
-          localStorage.setItem("decisionlens_active_workspace", foundId);
-          localStorage.setItem("decisionlens_user_workspace", foundId);
-        }
-      }
-
       setLoadingStage(2);
-      const data = await getDynamicDashboard(activeWsId || undefined);
-      setLoadingStage(3);
-      setDashboard(data);
+      const data = await getDynamicDashboard(activeWsId || undefined, force);
+      
+      if (data?.workspace_id && typeof window !== "undefined") {
+        localStorage.setItem("decisionlens_active_workspace", data.workspace_id);
+        localStorage.setItem("decisionlens_user_workspace", data.workspace_id);
+      }
+      
       setLoadingStage(4);
+      setDashboard(data);
+      dashboardLoadedRef.current = Boolean(data && data.workspace_exists !== false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard payload.");
     } finally {
       setLoading(false);
       setLoadingStage(5);
+      isLoadingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
-    (async () => {
-      await doLoad();
-    })();
+    doLoad();
 
     const handleWsChange = () => {
-      doLoad();
+      doLoad(true);
     };
     window.addEventListener("decisionlens:workspace_changed", handleWsChange);
 
     let intervalId: ReturnType<typeof setInterval> | null = null;
+    let isPolling = false;
+
     async function pollStatus() {
+      if (isPolling) return;
+      if (dashboardLoadedRef.current) {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        return;
+      }
+      isPolling = true;
       try {
         const wsRes = await api.get("/workspaces");
         const wsData = wsRes.data;
         const activeId = wsData.active_workspace_id;
-        if (!activeId) return;
+        if (!activeId) {
+          isPolling = false;
+          return;
+        }
         const stRes = await api.get(`/workspace/${activeId}/status`);
         const stData = stRes.data;
         setBgStatus(stData as { status: string; current_step?: string; progress: number });
+        
         const isReady = stData.status === "COMPLETED" || stData.status === "SEMANTIC_READY" || stData.is_ready;
         if (isReady) {
-          if (intervalId) clearInterval(intervalId);
-          doLoad();
+          if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+          }
+          if (!dashboardLoadedRef.current) {
+            doLoad(true);
+          }
         }
       } catch (e) {
         console.warn("[Dashboard] Background status poll failed", e);
+      } finally {
+        isPolling = false;
       }
     }
-    pollStatus();
-    intervalId = setInterval(pollStatus, 2000);
+
+    intervalId = setInterval(pollStatus, 3000);
+
     return () => {
       window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
       if (intervalId) clearInterval(intervalId);
@@ -321,7 +343,7 @@ export default function DynamicDashboardShell() {
     setError(null);
     setLoading(true);
     setLoadingStage(0);
-    doLoad();
+    doLoad(true);
   }, [doLoad]);
 
   if (loading) {

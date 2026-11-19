@@ -20,29 +20,40 @@ router = APIRouter(
 )
 
 
-def _get_parquet_path(db, dataset_id: Optional[str] = None) -> Path:
-    path = None
-    if dataset_id:
-        path = ParquetStorageManager.get_parquet_path(dataset_id)
-    else:
-        latest = get_latest_dataset(db)
-        if not latest:
-            raise HTTPException(status_code=404, detail="No dataset uploaded yet.")
-        path = Path(latest.file_path)
+def _get_parquet_path(db, dataset_id: Optional[str] = None, workspace_id: Optional[str] = None) -> Path:
+    target_id = workspace_id or dataset_id
+    if target_id and target_id != "latest":
+        direct = ParquetStorageManager.get_parquet_path(target_id)
+        if direct and direct.exists():
+            return direct
+        ws_path = ParquetStorageManager.get_parquet_path_for_workspace(target_id)
+        if ws_path and ws_path.exists():
+            return ws_path
 
+    latest = get_latest_dataset(db)
+    if not latest:
+        raise HTTPException(status_code=404, detail="No dataset uploaded yet.")
+    path = Path(latest.file_path)
     if not path or not path.exists():
+        direct = ParquetStorageManager.get_parquet_path(str(latest.id))
+        if direct and direct.exists():
+            return direct
         raise HTTPException(status_code=404, detail=f"Dataset parquet file not found at {path}")
     return path
 
 
 @router.get("/insights")
-def get_insights(dataset_id: Optional[str] = Query(None, description="Dataset ID")):
+def get_insights(
+    dataset_id: Optional[str] = Query(None, description="Dataset ID"),
+    workspace_id: Optional[str] = Query(None, description="Workspace ID")
+):
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
+        target_id = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id=dataset_id, workspace_id=workspace_id)
         response = UniversalAIBrain.query(
             question="Generate comprehensive insights and executive summary for this dataset.",
-            dataset_id=dataset_id,
+            dataset_id=target_id,
         )
         insights = response.get("support", {}).get("analytics", {}).get("critical_findings", [])
         if not insights:
@@ -50,10 +61,10 @@ def get_insights(dataset_id: Optional[str] = Query(None, description="Dataset ID
 
         try:
             mongo_insights.update_one(
-                {"dataset_id": dataset_id or "latest"},
+                {"dataset_id": target_id or "latest"},
                 {
                     "$set": {
-                        "dataset_id": dataset_id or "latest",
+                        "dataset_id": target_id or "latest",
                         "domain": response.get("support", {}).get("domain"),
                         "confidence": response.get("confidence"),
                         "insights": insights,
@@ -66,7 +77,7 @@ def get_insights(dataset_id: Optional[str] = Query(None, description="Dataset ID
             logger.warning("[MongoDB Insights] %s", mongo_exc)
 
         return {
-            "dataset_id": dataset_id or "latest",
+            "dataset_id": target_id or "latest",
             "insights": insights,
             "domain": response.get("support", {}).get("domain"),
             "confidence": response.get("confidence"),
@@ -76,18 +87,22 @@ def get_insights(dataset_id: Optional[str] = Query(None, description="Dataset ID
 
 
 @router.get("/anomalies")
-def get_anomalies(dataset_id: Optional[str] = Query(None, description="Dataset ID")):
+def get_anomalies(
+    dataset_id: Optional[str] = Query(None, description="Dataset ID"),
+    workspace_id: Optional[str] = Query(None, description="Workspace ID")
+):
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
+        target_id = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id=dataset_id, workspace_id=workspace_id)
         response = UniversalAIBrain.query(
             question="Detect anomalies and outliers in this dataset.",
-            dataset_id=dataset_id,
+            dataset_id=target_id,
         )
         analytics = response.get("support", {}).get("analytics", {})
         anomalies = analytics.get("anomalies", [])
         return {
-            "dataset_id": dataset_id or "latest",
+            "dataset_id": target_id or "latest",
             "total_anomalies": len(anomalies),
             "anomalies": anomalies
         }
@@ -96,19 +111,23 @@ def get_anomalies(dataset_id: Optional[str] = Query(None, description="Dataset I
 
 
 @router.get("/drivers")
-def get_variance_drivers(dataset_id: Optional[str] = Query(None, description="Dataset ID")):
+def get_variance_drivers(
+    dataset_id: Optional[str] = Query(None, description="Dataset ID"),
+    workspace_id: Optional[str] = Query(None, description="Workspace ID")
+):
     db = SessionLocal()
     try:
-        parquet_path = _get_parquet_path(db, dataset_id)
+        target_id = workspace_id or dataset_id
+        parquet_path = _get_parquet_path(db, dataset_id=dataset_id, workspace_id=workspace_id)
         response = UniversalAIBrain.query(
             question="Identify key drivers and root causes for this dataset.",
-            dataset_id=dataset_id,
+            dataset_id=target_id,
         )
         analytics = response.get("support", {}).get("analytics", {})
         drivers = analytics.get("drivers", [])
         root_causes = analytics.get("root_causes", [])
         return {
-            "dataset_id": dataset_id or "latest",
+            "dataset_id": target_id or "latest",
             "drivers": drivers,
             "root_causes": root_causes
         }

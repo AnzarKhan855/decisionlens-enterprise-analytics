@@ -131,6 +131,15 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
                 dataset_type=dashboard.get("dataset_type", "Unknown") if isinstance(dashboard, dict) else "Unknown",
             )
 
+        if analytics_result is None:
+            from app.schemas.analytics import AnalyticsResult, HealthScore
+            analytics_result = AnalyticsResult(
+                domain=getattr(sm, "domain", "Generic Business"),
+                dataset_type=getattr(sm, "dataset_type", "Unknown"),
+                semantic_model=sm,
+                health_score=HealthScore(overall_score=dashboard.get("health_score", 85.0) or 85.0, grade="B", status="Good", breakdown=[]),
+            )
+
         predictions = getattr(analytics_result, "predictions", []) if analytics_result else []
         report = RoleBasedReportEngine.generate_report(
             analytics_result=analytics_result,
@@ -357,6 +366,28 @@ def export_pptx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = 
     except Exception as e:
         logger.error("[PPTX Export] %s", e)
         raise HTTPException(status_code=500, detail=f"PPTX export failed: {e}")
+
+
+@router.get("/export/xlsx")
+def export_xlsx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
+    try:
+        from app.reports.exporters import XLSXExporter
+        target = workspace_id or dataset_id
+        report = _get_report_data(target)
+        xlsx_bytes = XLSXExporter.export(report, title="DecisionLens Executive Report")
+        return Response(
+            content=xlsx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=decisionlens_report_{target or 'latest'}.xlsx"},
+        )
+    except Exception as e:
+        logger.error("[XLSX Export] %s", e)
+        raise HTTPException(status_code=500, detail=f"XLSX export failed: {e}")
+
+
+@router.get("/export/json")
+def export_json(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+    return export_executive_summary(dataset_id=dataset_id, workspace_id=workspace_id)
 
 
 @router.get("/role/{audience}")

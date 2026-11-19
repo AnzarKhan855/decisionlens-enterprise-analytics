@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import api from "@/lib/api";
+import api, { getCached } from "@/lib/api";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ErrorState from "@/components/ui/ErrorState";
 import InsightExplanationModal, { InsightDetail } from "@/components/dashboard/InsightExplanationModal";
@@ -54,41 +54,95 @@ export default function ExecutiveDecisionCenterPage() {
     return () => window.removeEventListener("decisionlens:workspace_changed", handleWsChange);
   }, []);
 
-  async function fetchWorkspaceAndDecisions() {
+  async function fetchWorkspaceAndDecisions(forceRefresh: boolean = false) {
     try {
       setLoading(true);
       setError(null);
-      const wsRes = await api.get("/workspaces");
-      const wsJson = wsRes.data;
-      const list = wsJson.workspaces || [];
+      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
+
+      // Concurrently fetch workspaces and active dashboard payload
+      const [wsJson, dashJson] = await Promise.all([
+        forceRefresh ? api.get("/workspaces").then((r) => r.data) : getCached<any>("/workspaces", undefined, 30000),
+        storedId
+          ? (forceRefresh ? api.get("/dashboard/dynamic", { params: { workspace_id: storedId } }).then((r) => r.data) : getCached<any>("/dashboard/dynamic", { workspace_id: storedId }, 60000))
+          : null,
+      ]);
+
+      const list = wsJson?.workspaces || [];
       setWorkspaces(list);
 
-      const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
       const currentWs =
         (storedId && list.find((w: any) => w.workspace_id === storedId)) ||
-        (wsJson.active_workspace_id && list.find((w: any) => w.workspace_id === wsJson.active_workspace_id)) ||
+        (wsJson?.active_workspace_id && list.find((w: any) => w.workspace_id === wsJson.active_workspace_id)) ||
         list.find((w: any) => w.is_active) ||
-        null;
+        (list.length > 0 ? list[0] : null);
 
-      if (currentWs) {
-        const dashRes = await api.get("/dashboard/dynamic", { params: { workspace_id: currentWs.workspace_id } });
-        const dashJson = dashRes.data;
-        const actionItems = dashJson.action_items || [];
+      let effectiveDash = dashJson;
+      if (!effectiveDash && currentWs) {
+        effectiveDash = forceRefresh
+          ? await api.get("/dashboard/dynamic", { params: { workspace_id: currentWs.workspace_id } }).then((r) => r.data)
+          : await getCached<any>("/dashboard/dynamic", { workspace_id: currentWs.workspace_id }, 60000);
+      }
+
+      if (effectiveDash || currentWs) {
+        const targetWsId = currentWs?.workspace_id || storedId;
+        let actionItems = effectiveDash?.action_items || effectiveDash?.action_center || [];
+        if (!actionItems.length && effectiveDash?.sections) {
+          const recSection = effectiveDash.sections.find((s: any) => s.id === "recommendations");
+          if (recSection?.cards?.length) {
+            actionItems = recSection.cards.map((c: any) => ({
+              action: c.action || c.title,
+              priority: c.priority || "High Priority",
+              expected_roi: c.expected_roi || c.financial_impact || "Top-Line ROI",
+              confidence: typeof c.confidence === "number" && c.confidence <= 1 ? `${Math.round(c.confidence * 100)}%` : (c.confidence || "90%"),
+              risk_level: c.risk_level || "Low Risk",
+              time: c.timeline || "30 Days",
+              difficulty: c.implementation_difficulty || "Medium",
+              owner: c.owner || "Executive Team",
+              evidence_sql: c.evidence || "",
+              explanation: c.reason || c.title || "",
+              why_matters: c.financial_impact || "Direct impact on enterprise KPIs",
+              recommended_action: c.action || c.title || "Execute recommendation",
+            }));
+          }
+        }
+        if (!actionItems.length && targetWsId) {
+          const stratRes = forceRefresh
+            ? await api.get("/analytics/strategic-decisions", { params: { workspace_id: targetWsId } }).catch(() => null)
+            : await getCached<any>("/analytics/strategic-decisions", { workspace_id: targetWsId }, 60000).catch(() => null);
+          const stratDecisions = stratRes?.data?.decisions || stratRes?.decisions || [];
+          if (stratDecisions.length) {
+            actionItems = stratDecisions.map((d: any) => ({
+              action: d.action || d.title,
+              priority: d.priority || "High Priority",
+              expected_roi: d.estimated_roi || "Top-Line ROI",
+              confidence: `${d.confidence || 85}%`,
+              risk_level: d.risk_level || "Low Risk",
+              time: "30 Days",
+              difficulty: "Medium",
+              owner: "Executive Management",
+              evidence_sql: "",
+              explanation: d.reason || d.title || "",
+              why_matters: d.expected_impact || "Direct impact on enterprise performance",
+              recommended_action: d.action || d.title,
+            }));
+          }
+        }
         const mapped: DecisionItem[] = actionItems.map((item: any, idx: number) => ({
           id: idx + 1,
-          title: item.action,
+          title: item.action || item.title || `Strategic Decision ${idx + 1}`,
           priority: item.priority || "High Priority",
           expected_roi: item.expected_roi || "Top-Line ROI",
           confidence: item.confidence || "95%",
-          risk_level: "Low Risk",
+          risk_level: item.risk_level || "Low Risk",
           time: item.time || "14 Days",
           difficulty: item.difficulty || "Easy",
           owner: item.owner || "Executive Management",
           status: "Recommended",
           evidence_sql: item.evidence_sql || "SELECT * FROM read_parquet(...)",
           explanation: item.explanation || "Empirical insight generated from active dataset.",
-          why_matters: "Direct impact on enterprise performance metrics.",
-          recommended_action: `Execute action owned by ${item.owner || "Executive Team"}.`
+          why_matters: item.why_matters || "Direct impact on enterprise performance metrics.",
+          recommended_action: item.recommended_action || `Execute action owned by ${item.owner || "Executive Team"}.`
         }));
         setDecisions(mapped);
       }

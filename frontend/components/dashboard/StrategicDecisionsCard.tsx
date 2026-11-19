@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Target, CheckCircle2, TrendingUp, AlertCircle, Clock, ShieldCheck, FileCheck, Layers } from "lucide-react";
-import api from "@/lib/api";
+import api, { getCached } from "@/lib/api";
 
 export default function StrategicDecisionsCard() {
   const [decisions, setDecisions] = useState<any[]>([]);
@@ -12,9 +12,9 @@ export default function StrategicDecisionsCard() {
   useEffect(() => {
     async function fetchDecisions() {
       try {
-        const response = await api.get("/analytics/strategic-decisions");
-        setDecisions(response.data.decisions || []);
-        setScorecard(response.data.ceo_health_scorecard || null);
+        const data = await getCached<any>("/analytics/strategic-decisions", undefined, 60000);
+        setDecisions(data.decisions || []);
+        setScorecard(data.ceo_health_scorecard || null);
       } catch (err) {
         console.error("Error fetching decisions:", err);
       } finally {

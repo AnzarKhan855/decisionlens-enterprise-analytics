@@ -169,6 +169,27 @@ class UniversalDashboardStoryteller:
         for p in prediction_list:
             pred_dicts.append(p.to_dict() if hasattr(p, "to_dict") else (p.__dict__ if hasattr(p, "__dict__") else dict(p)))
 
+        action_items_list = []
+        for rc in recommendation_cards:
+            rc_dict = rc.model_dump() if hasattr(rc, "model_dump") else (rc.__dict__ if hasattr(rc, "__dict__") else dict(rc))
+            conf_val = rc_dict.get("confidence", 0.85)
+            conf_str = f"{int(conf_val * 100)}%" if isinstance(conf_val, (int, float)) and conf_val <= 1.0 else f"{int(conf_val)}%"
+            action_items_list.append({
+                "action": rc_dict.get("action", rc_dict.get("title", "Execute recommended strategy")),
+                "title": rc_dict.get("title", "Executive Recommendation"),
+                "priority": rc_dict.get("priority", "HIGH"),
+                "expected_roi": rc_dict.get("expected_roi", rc_dict.get("financial_impact", "Positive ROI")),
+                "confidence": conf_str,
+                "risk_level": rc_dict.get("risk_level", "LOW"),
+                "time": rc_dict.get("timeline", "30 Days"),
+                "difficulty": rc_dict.get("implementation_difficulty", "Medium"),
+                "owner": rc_dict.get("owner", "Executive Management"),
+                "evidence_sql": rc_dict.get("evidence", ""),
+                "explanation": rc_dict.get("reason", rc_dict.get("title", "")),
+                "why_matters": rc_dict.get("financial_impact", rc_dict.get("reason", "Direct impact on enterprise KPIs")),
+                "recommended_action": rc_dict.get("action", rc_dict.get("title", "")),
+            })
+
         forecast_summary = analytics_dict.get("forecast_summary", {}) or {}
         if not forecast_summary and pred_dicts:
             primary = pred_dicts[0]
@@ -199,6 +220,8 @@ class UniversalDashboardStoryteller:
             sections=sections,
             kpi_cards=kpi_cards,
             kpis=[k.model_dump() if hasattr(k, "model_dump") else (k.__dict__ if hasattr(k, "__dict__") else dict(k)) for k in kpi_cards],
+            action_items=action_items_list,
+            action_center=action_items_list,
             health_card=health_card,
             charts=charts,
             evidence=evidence_cards,

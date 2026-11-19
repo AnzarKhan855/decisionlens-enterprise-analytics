@@ -66,20 +66,15 @@ class WorkspaceDiscoveryEngine:
                 pass
 
         clean_target = workspace_id.lower().replace("-", "_")
-        all_parquets = list(parquet_dir.glob("*.parquet"))
+        all_parquets = [p for p in parquet_dir.glob("*.parquet") if not p.name.startswith(("unified_", "sample-", "tmp_", "ds-bench-", "test_"))]
         parquet_files = [
             p for p in all_parquets
-            if not p.name.startswith("unified_")
-            and not p.name.startswith("sample-")
-            and (clean_target in p.stem.lower().replace("-", "_") or p.stem.lower().replace("-", "_").startswith(clean_target))
+            if (clean_target in p.stem.lower().replace("-", "_") or p.stem.lower().replace("-", "_").startswith(clean_target))
         ]
 
-        if not parquet_files:
-            parquet_files = [
-                p for p in all_parquets
-                if not p.name.startswith("unified_")
-                and not p.name.startswith("sample-")
-            ]
+        if not parquet_files and all_parquets:
+            # Pick only the primary/most suitable operational parquet file, never all 1,300+ files
+            parquet_files = [all_parquets[0]]
 
         file_listing_cache.set(cache_key, parquet_files, ttl=60.0)
         return parquet_files

@@ -129,6 +129,8 @@ htmlcov/
 *.tmp
 *.temp
 *.bak
+scratch/
+backend/scratch/
 
 
 # =========================================================

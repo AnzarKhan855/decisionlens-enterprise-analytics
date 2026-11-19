@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import api from "@/lib/api";
+import api, { getCached } from "@/lib/api";
 import {
   Target,
   AlertTriangle,
@@ -430,10 +430,10 @@ export default function StrategyPage() {
     setError(null);
     try {
       const storedId = typeof window !== "undefined" ? localStorage.getItem("decisionlens_active_workspace") : null;
-      const res = await api.get("/strategy", { params: storedId ? { workspace_id: storedId } : {} });
-      if (res.data) {
-        setStrategy(res.data as StrategyReport);
-        setLastGenerated(res.data.generated_at || new Date().toISOString());
+      const data = await getCached<any>("/strategy", storedId ? { workspace_id: storedId } : {}, 60000);
+      if (data) {
+        setStrategy(data as StrategyReport);
+        setLastGenerated(data.generated_at || new Date().toISOString());
       }
     } catch (err: unknown) {
       if (err && typeof err === "object" && "response" in err) {

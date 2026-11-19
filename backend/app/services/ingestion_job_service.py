@@ -522,6 +522,13 @@ class IngestionJobService:
             except Exception:
                 pass
 
+            # Precompute and warm the Enterprise Semantic Model cache in the background
+            try:
+                from app.semantic_model.engine import build_semantic_model
+                build_semantic_model(workspace_id=workspace_id, force_rebuild=True)
+            except Exception as sem_warm_err:
+                logger.debug("[IngestionPipeline] Semantic model warmup notice: %s", sem_warm_err)
+
             # Precompute and warm Analytics, Strategy, and Scenario Levers caches
             sm_for_warm = None
             analytics_result_for_warm = None

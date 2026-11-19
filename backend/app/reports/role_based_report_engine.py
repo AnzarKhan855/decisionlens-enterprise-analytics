@@ -52,13 +52,19 @@ class RoleBasedReportEngine:
         )
 
         sections = base_report.get("sections", {})
+        dom = (getattr(analytics_result, "domain", None) or getattr(semantic_model, "domain", None) or "Generic Business") if (analytics_result or semantic_model) else "Generic Business"
+        dst = (getattr(analytics_result, "dataset_type", None) or getattr(semantic_model, "dataset_type", None) or "Unknown Dataset") if (analytics_result or semantic_model) else "Unknown Dataset"
+        hs = getattr(analytics_result, "health_score", None) if analytics_result else None
+        hs_score = hs.overall_score if isinstance(hs, HealthScore) else (hs if isinstance(hs, (int, float)) else 85.0)
+        hs_status = hs.status if isinstance(hs, HealthScore) else "Good"
+
         tailored: Dict[str, Any] = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "audience": audience,
-            "domain": analytics_result.domain or semantic_model.domain or "Generic Business",
-            "dataset_type": analytics_result.dataset_type or "Unknown Dataset",
-            "health_score": analytics_result.health_score.overall_score if isinstance(analytics_result.health_score, HealthScore) else 0,
-            "health_status": analytics_result.health_score.status if isinstance(analytics_result.health_score, HealthScore) else "Unknown",
+            "domain": dom,
+            "dataset_type": dst,
+            "health_score": hs_score,
+            "health_status": hs_status,
         }
 
         if audience == "CEO":

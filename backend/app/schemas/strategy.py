@@ -102,6 +102,30 @@ class DecisionNode:
     recommendation: str
     children: List["DecisionNode"] = field(default_factory=list)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "impact": self.impact,
+            "risk": self.risk,
+            "roi": self.roi,
+            "recommendation": self.recommendation,
+            "children": [c.to_dict() if hasattr(c, "to_dict") else c for c in self.children],
+        }
+
+
+def _deep_to_dict(val: Any) -> Any:
+    if hasattr(val, "to_dict") and callable(getattr(val, "to_dict")):
+        return val.to_dict()
+    if isinstance(val, list):
+        return [_deep_to_dict(item) for item in val]
+    if isinstance(val, dict):
+        return {k: _deep_to_dict(v) for k, v in val.items()}
+    if hasattr(val, "__dict__"):
+        return {k: _deep_to_dict(v) for k, v in val.__dict__.items() if not k.startswith("_")}
+    return val
+
 
 @dataclass
 class CrossKPIRelationship:
@@ -110,6 +134,15 @@ class CrossKPIRelationship:
     relationship: str
     explanation: str
     confidence: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "source_kpi": self.source_kpi,
+            "target_kpi": self.target_kpi,
+            "relationship": self.relationship,
+            "explanation": self.explanation,
+            "confidence": self.confidence,
+        }
 
 
 @dataclass
@@ -123,6 +156,19 @@ class ExecutiveSummary:
     recommendations: List[str] = field(default_factory=list)
     expected_outcome: str = ""
     confidence: float = 0.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "headline": self.headline,
+            "key_findings": list(self.key_findings),
+            "evidence": list(self.evidence),
+            "business_impact": self.business_impact,
+            "risks": list(self.risks),
+            "opportunities": list(self.opportunities),
+            "recommendations": list(self.recommendations),
+            "expected_outcome": self.expected_outcome,
+            "confidence": self.confidence,
+        }
 
 
 @dataclass
@@ -149,17 +195,5 @@ class StrategyReport:
         result = {}
         for f in self.__dataclass_fields__:
             val = getattr(self, f)
-            if hasattr(val, "to_dict"):
-                result[f] = val.to_dict()
-            elif isinstance(val, list):
-                result[f] = [
-                    item.to_dict() if hasattr(item, "to_dict") else (
-                        {k: v for k, v in item.__dict__.items()} if hasattr(item, "__dict__") else item
-                    )
-                    for item in val
-                ]
-            elif hasattr(val, "__dict__"):
-                result[f] = {k: v for k, v in val.__dict__.items()}
-            else:
-                result[f] = val
+            result[f] = _deep_to_dict(val)
         return result

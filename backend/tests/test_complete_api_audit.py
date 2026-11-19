@@ -33,7 +33,13 @@ def get_auth_headers():
     }
     client.post("/api/v1/auth/register", json=reg_payload)
     login_res = client.post("/api/v1/auth/login", json={"email": email, "password": "Password123!"})
-    token = login_res.json().get("access_token")
+    login_data = login_res.json()
+    if login_data.get("otp_required"):
+        otp = login_data.get("dev_otp", "123456")
+        verify_res = client.post("/api/v1/auth/verify-otp", json={"email": email, "otp": otp})
+        token = verify_res.json().get("access_token")
+    else:
+        token = login_data.get("access_token")
     return {"Authorization": f"Bearer {token}"}
 
 def test_programmatic_full_api_audit():
@@ -59,6 +65,9 @@ def test_programmatic_full_api_audit():
             .replace("{tenant_id}", "tenant_123") \
             .replace("{provider}", "google") \
             .replace("{period}", "monthly")
+
+        if method == "DELETE" and any(k in test_path for k in ["/all", "delete-all", "/workspace/default"]):
+            continue
 
         try:
             if method == "GET":

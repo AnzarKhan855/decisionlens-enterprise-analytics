@@ -16,7 +16,7 @@ from app.semantic_model.core import SemanticModel
 from app.validation.chart_validator import validate_charts
 
 logger = get_logger(__name__)
-_dashboard_cache = TTLCache(maxsize=32, ttl=60.0)
+_dashboard_cache = TTLCache(maxsize=64, ttl=600.0)
 _candidate_score_cache: Dict[str, Tuple[float, Tuple[int, int, int]]] = {}
 
 
@@ -25,7 +25,7 @@ class DynamicDashboardService:
 
 
 _NUMERIC_TYPE_KEYWORDS = ["BIGINT", "INTEGER", "INT", "SMALLINT", "TINYINT", "DOUBLE", "FLOAT", "DECIMAL", "HUGEINT", "REAL"]
-_SYSTEM_FILE_PREFIXES = ("sample-", "unified_", "tmp_")
+_SYSTEM_FILE_PREFIXES = ("sample-", "unified_", "tmp_", "ds-bench-", "test_")
 _MEASURE_COLUMN_KEYWORDS = [
     "price", "amount", "revenue", "sales", "cost", "profit", "quantity", "value",
     "duration", "probability", "risk", "likelihood", "margin", "discount", "fee",
@@ -76,7 +76,21 @@ def _score_parquet_candidate(pfile: Path) -> Tuple[int, int, int]:
     return score
 
 
+_profile_score_cache: Dict[str, Tuple[float, Tuple[int, int]]] = {}
+
+
 def _profile_table_score(pfile: Path) -> Tuple[int, int]:
+    mtime = 0.0
+    try:
+        mtime = pfile.stat().st_mtime
+    except Exception:
+        pass
+    cache_key = str(pfile.resolve())
+    if cache_key in _profile_score_cache:
+        cached_mtime, cached_score = _profile_score_cache[cache_key]
+        if abs(cached_mtime - mtime) < 1e-4:
+            return cached_score
+
     measure_cols = 0
     row_count = 0
     try:
@@ -88,7 +102,10 @@ def _profile_table_score(pfile: Path) -> Tuple[int, int]:
                 measure_cols += 1
     except Exception as e:
         logger.debug(f"Profile table score failed for {pfile}: {str(e)}")
-    return measure_cols, row_count
+
+    score = (measure_cols, row_count)
+    _profile_score_cache[cache_key] = (mtime, score)
+    return score
 
 
 def _table_has_temporal(pfile: Path) -> bool:
@@ -133,7 +150,18 @@ def _workspace_prefix_score(pfile: Path, workspace_id: str) -> int:
     return 0
 
 
+_best_parquet_cache: Dict[str, Tuple[float, Optional[Path]]] = {}
+
+
 def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optional[Path]:
+    import time
+    cache_key = target_workspace_id or "__active__"
+    now = time.time()
+    if cache_key in _best_parquet_cache:
+        t, cached_path = _best_parquet_cache[cache_key]
+        if now - t < 300.0 and (cached_path is None or cached_path.exists()):
+            return cached_path
+
     from app.database.storage import STORAGE_DIR
     from app.services.workspace_service import EnterpriseWorkspaceManager
 
@@ -164,12 +192,14 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
                     best_score = score
                     best_path = p
             if best_path is not None and best_score > 0:
+                _best_parquet_cache[cache_key] = (now, best_path)
                 return best_path
 
         ws_unified = STORAGE_DIR / f"unified_{active_ws_id}.parquet"
         if ws_unified.exists():
             try:
                 if DuckDBEngine.get_row_count(ws_unified) > 0:
+                    _best_parquet_cache[cache_key] = (now, ws_unified)
                     return ws_unified
             except Exception as e:
                 logger.debug(f"Unified parquet check failed for {ws_unified}: {str(e)}")
@@ -178,9 +208,11 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
         from app.database.storage import ParquetStorageManager
         ws_direct_or_glob = ParquetStorageManager.get_parquet_path_for_workspace(active_ws_id)
         if ws_direct_or_glob and ws_direct_or_glob.exists():
+            _best_parquet_cache[cache_key] = (now, ws_direct_or_glob)
             return ws_direct_or_glob
 
     if active_ws_id:
+        _best_parquet_cache[cache_key] = (now, None)
         return None
 
     best_path = None
@@ -196,6 +228,7 @@ def _find_best_parquet(db, target_workspace_id: Optional[str] = None) -> Optiona
             best_score = score
             best_path = pfile
 
+    _best_parquet_cache[cache_key] = (now, best_path)
     return best_path
 
 
@@ -294,7 +327,7 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
                 "health_score": None,
                 "profile": {}
             }
-            _dashboard_cache.set(cache_key, result, ttl=60.0)
+            _dashboard_cache.set(cache_key, result, ttl=600.0)
             return result
 
         if isinstance(sem_model, dict):
@@ -412,7 +445,7 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
         result["errors"] = result.get("errors", []) or []
         if "charts" in result and result["charts"]:
             result["charts"] = validate_charts(result["charts"])
-        _dashboard_cache.set(cache_key, result, ttl=60.0, workspace_id=active_ws)
+        _dashboard_cache.set(cache_key, result, ttl=600.0, workspace_id=active_ws)
         if return_analytics_result:
             return result, analytics_result
         return result

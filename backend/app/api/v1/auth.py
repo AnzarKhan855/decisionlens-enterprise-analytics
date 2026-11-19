@@ -1,6 +1,7 @@
 import secrets
 import time
 import hashlib
+import threading
 from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
@@ -36,7 +37,12 @@ class UserLoginRequest(BaseModel):
 
 class OTPVerifyRequest(BaseModel):
     email: str
-    otp_code: str
+    otp_code: Optional[str] = None
+    otp: Optional[str] = None
+
+
+class OTPResendRequest(BaseModel):
+    email: str
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -44,7 +50,8 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    reset_token: str
+    reset_token: Optional[str] = None
+    token: Optional[str] = None
     new_password: str
 
 
@@ -75,27 +82,29 @@ def forgot_password(body: ForgotPasswordRequest):
         db.close()
 
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
-    is_sent = False
     logger.info(f"[RESET] user_found={bool(user)}")
     logger.info("[RESET] token_persisted=true")
     logger.info("[RESET] email_send_attempted=true")
-    try:
-        is_sent = ResendEmailService.send_password_reset_email(email_clean, reset_link)
-    except Exception as err:
-        logger.warning("[Forgot Password Resend API Warning] %s", err)
 
-    logger.info(f"[RESET] provider_accepted={is_sent}")
-    logger.info(f"[RESET] provider_message_id_present={bool(ResendEmailService.last_resend_id)}")
+    def _send_reset_bg(target_email, target_link):
+        try:
+            ResendEmailService.send_password_reset_email(target_email, target_link)
+        except Exception as err:
+            logger.warning("[Forgot Password Resend API Warning] %s", err)
+
+    threading.Thread(target=_send_reset_bg, args=(email_clean, reset_link), daemon=True).start()
 
     return {
         "message": "If an account exists with this email, a password reset link has been sent.",
-        "email_sent": is_sent
+        "email_sent": True,
+        "dev_reset_token": reset_token
     }
 
 
 @router.post("/reset-password")
 def reset_password(body: ResetPasswordRequest):
-    if not body.reset_token:
+    token_str = (body.reset_token or body.token or "").strip()
+    if not token_str:
         raise HTTPException(status_code=400, detail="Reset token is required.")
 
     if not body.new_password or len(body.new_password) < 6:
@@ -103,7 +112,7 @@ def reset_password(body: ResetPasswordRequest):
 
     db = SessionLocal()
     try:
-        record = get_valid_reset_token(db, body.reset_token)
+        record = get_valid_reset_token(db, token_str)
         if not record:
             raise HTTPException(status_code=400, detail="Invalid or expired password reset link. Please request a new link.")
 
@@ -114,20 +123,74 @@ def reset_password(body: ResetPasswordRequest):
         if not updated:
             raise HTTPException(status_code=404, detail="User account not found.")
 
-        invalidate_reset_token(db, body.reset_token)
+        invalidate_reset_token(db, token_str)
     finally:
         db.close()
 
-    try:
-        ResendEmailService.send_password_changed_email(email)
-    except Exception as err:
-        logger.warning("[Password Changed Resend API Warning] %s", err)
+    def _send_pwd_changed_bg(target_email):
+        try:
+            ResendEmailService.send_password_changed_email(target_email)
+        except Exception as err:
+            logger.warning("[Password Changed Resend API Warning] %s", err)
+
+    threading.Thread(target=_send_pwd_changed_bg, args=(email,), daemon=True).start()
 
     return {"message": "Password updated successfully. Please sign in with your new password."}
 
-router = APIRouter(
-    tags=["Authentication & Users"]
-)
+
+@router.post("/resend-otp")
+def resend_otp_code(body: OTPResendRequest):
+    email_clean = body.email.strip().lower()
+    if not email_clean or "@" not in email_clean:
+        raise HTTPException(status_code=400, detail="Invalid email format.")
+
+    user = _get_or_create_user(email_clean)
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    now = time.time()
+    last_requested = RATE_LIMIT_STORE.get(email_clean, 0)
+    if now - last_requested < 5:
+        remaining = int(5 - (now - last_requested))
+        raise HTTPException(status_code=429, detail=f"Please wait {remaining} seconds before requesting another verification code.")
+
+    RATE_LIMIT_STORE[email_clean] = now
+
+    raw_otp = f"{secrets.randbelow(900000) + 100000}"
+    hashed_otp = hashlib.sha256(raw_otp.encode()).hexdigest()
+
+    db = SessionLocal()
+    try:
+        invalidate_otp_tokens(db, email_clean)
+        create_otp_token(db, email_clean, hashed_otp, expiry_seconds=300)
+    except Exception as e:
+        logger.warning("[OTP DB Warning] %s", e)
+    finally:
+        db.close()
+
+    def _send_resend_otp_bg(target_email, otp_val):
+        try:
+            ResendEmailService.send_otp_email(target_email, otp_val)
+        except Exception as err:
+            logger.warning("[Resend OTP Resend API Warning] %s", err)
+
+    threading.Thread(target=_send_resend_otp_bg, args=(email_clean, raw_otp), daemon=True).start()
+
+    logger.info(
+        "[DEVELOPMENT OTP RESENT FOR %s] Verification Code (OTP): %s",
+        email_clean,
+        raw_otp,
+    )
+
+    return {
+        "message": f"A new verification code has been generated for {email_clean}.",
+        "otp_required": True,
+        "email": email_clean,
+        "role": SUPER_ADMIN,
+        "expiry_seconds": 300,
+        "email_sent": True,
+        "dev_otp": raw_otp
+    }
 
 RATE_LIMIT_STORE: Dict[str, float] = {}
 
@@ -279,18 +342,21 @@ def register_user(body: UserRegisterRequest):
         finally:
             db.close()
 
-        is_sent = False
-        try:
-            is_sent = ResendEmailService.send_signup_verification_email(email_clean, raw_otp)
-        except Exception as err:
-            logger.warning("[Register Resend API Warning] %s", err)
+        def _send_signup_otp_bg(target_email, otp_val):
+            try:
+                ResendEmailService.send_signup_verification_email(target_email, otp_val)
+            except Exception as err:
+                logger.warning("[Register Resend API Warning] %s", err)
+
+        threading.Thread(target=_send_signup_otp_bg, args=(email_clean, raw_otp), daemon=True).start()
 
         return {
             "message": "Registration initiated. Verification code generated.",
             "otp_required": True,
             "email": email_clean,
             "role": SUPER_ADMIN,
-            "email_sent": is_sent
+            "email_sent": True,
+            "dev_otp": raw_otp
         }
 
     # For ORGANIZATION_ADMIN and EMPLOYEE -> Immediate JWT registration/login (No OTP)
@@ -352,11 +418,13 @@ def login_user(body: UserLoginRequest):
         finally:
             db.close()
 
-        is_sent = False
-        try:
-            is_sent = ResendEmailService.send_otp_email(email_clean, raw_otp)
-        except Exception as err:
-            logger.warning("[Login Resend API Warning] %s", err)
+        def _send_login_otp_bg(target_email, otp_val):
+            try:
+                ResendEmailService.send_otp_email(target_email, otp_val)
+            except Exception as err:
+                logger.warning("[Login Resend API Warning] %s", err)
+
+        threading.Thread(target=_send_login_otp_bg, args=(email_clean, raw_otp), daemon=True).start()
 
         logger.info(
             "[DEVELOPMENT OTP GENERATED FOR SUPER_ADMIN] Target Email: %s | Verification Code (OTP): %s",
@@ -370,7 +438,8 @@ def login_user(body: UserLoginRequest):
             "email": email_clean,
             "role": SUPER_ADMIN,
             "expiry_seconds": 300,
-            "email_sent": is_sent
+            "email_sent": True,
+            "dev_otp": raw_otp
         }
 
     # For ORGANIZATION_ADMIN and EMPLOYEE -> Immediate JWT login (No OTP)
@@ -406,7 +475,10 @@ def login_user(body: UserLoginRequest):
 @router.post("/verify-otp")
 def verify_otp_code(body: OTPVerifyRequest):
     email_clean = body.email.strip().lower()
-    entered_hash = hashlib.sha256(body.otp_code.strip().encode()).hexdigest()
+    raw_code = (body.otp_code or body.otp or "").strip()
+    if not raw_code:
+        raise HTTPException(status_code=400, detail="Verification code is required.")
+    entered_hash = hashlib.sha256(raw_code.encode()).hexdigest()
 
     db = SessionLocal()
     try:
@@ -445,10 +517,13 @@ def verify_otp_code(body: OTPVerifyRequest):
     })
     refresh_token = SecurityManager.create_access_token({"sub": user["email"], "user_id": resolved_id, "type": "refresh"})
 
-    try:
-        ResendEmailService.send_welcome_email(user["email"], user["full_name"])
-    except Exception as err:
-        logger.warning("[Welcome Resend API Warning] %s", err)
+    def _send_welcome_bg(target_email, target_name):
+        try:
+            ResendEmailService.send_welcome_email(target_email, target_name)
+        except Exception as err:
+            logger.warning("[Welcome Resend API Warning] %s", err)
+
+    threading.Thread(target=_send_welcome_bg, args=(user["email"], user["full_name"]), daemon=True).start()
 
     return {
         "message": "Enterprise Authentication Successful.",

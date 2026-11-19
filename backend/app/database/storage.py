@@ -5,6 +5,9 @@ from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+_score_cache = {}
+_resolved_path_cache = {}
+
 # Standard directory for storing uploaded dataset parquet files
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STORAGE_DIR = BASE_DIR / "storage" / "parquet"
@@ -18,7 +21,7 @@ class ParquetStorageManager:
     Manages physical storage of raw uploads, compressed Parquet files, extracted folders, and ZIP archives.
     """
 
-    _SYSTEM_FILE_PREFIXES = ("sample-", "unified_", "tmp_")
+    _SYSTEM_FILE_PREFIXES = ("sample-", "unified_", "tmp_", "ds-bench-", "test_")
 
     @staticmethod
     def ensure_directories():
@@ -39,12 +42,18 @@ class ParquetStorageManager:
         Handles both single-file datasets ({id}.parquet) and workspace uploads ({id}__*.parquet).
         Returns the best table (preferring measures + temporal columns) for workspace uploads.
         """
+        cached_p = _resolved_path_cache.get(dataset_id)
+        if cached_p and cached_p.exists():
+            return cached_p
+
         direct = ParquetStorageManager.get_parquet_path(dataset_id)
         if direct.exists():
+            _resolved_path_cache[dataset_id] = direct
             return direct
 
         unified = STORAGE_DIR / f"unified_{dataset_id}.parquet"
         if unified.exists():
+            _resolved_path_cache[dataset_id] = unified
             return unified
 
         seen_files = set()
@@ -59,6 +68,11 @@ class ParquetStorageManager:
 
         def _score_file(pfile: Path) -> Tuple[int, int]:
             try:
+                st = pfile.stat()
+                ck = (str(pfile), st.st_mtime)
+                if ck in _score_cache:
+                    return _score_cache[ck]
+
                 import duckdb
                 conn = duckdb.connect(":memory:")
                 schema = conn.execute(f"DESCRIBE SELECT * FROM read_parquet('{pfile.as_posix()}')").fetchall()
@@ -68,6 +82,7 @@ class ParquetStorageManager:
                 conn.close()
                 temporal_bonus = 5000000 if has_temporal else 0
                 score = temporal_bonus + numeric_cols * 10000 + row_count
+                _score_cache[ck] = (score, row_count)
                 return score, row_count
             except Exception:
                 return 0, 0
@@ -83,7 +98,9 @@ class ParquetStorageManager:
         if not candidates:
             return None
         candidates.sort(key=lambda x: x[0], reverse=True)
-        return candidates[0][2]
+        resolved = candidates[0][2]
+        _resolved_path_cache[dataset_id] = resolved
+        return resolved
 
     @staticmethod
     def get_raw_path(dataset_id: str, original_filename: str) -> Path:

@@ -193,6 +193,8 @@ class DashboardResponse(BaseModel):
     sections: List[DashboardSection]
     kpi_cards: List[KPICard] = []
     kpis: List[Dict[str, Any]] = []
+    action_items: List[Dict[str, Any]] = []
+    action_center: List[Dict[str, Any]] = []
     health_card: Optional[HealthCard] = None
     charts: List[ChartSpec] = []
     evidence: List[EvidenceCard] = []

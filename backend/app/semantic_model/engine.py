@@ -419,14 +419,27 @@ class SemanticModelEngine:
         files = []
         if parquet_dir.exists():
             for p in parquet_dir.glob("*.parquet"):
-                if p.name.startswith("unified_") or p.name.startswith("tmp_"):
+                if p.name.startswith(("unified_", "tmp_", "sample-", "ds-bench-", "test_")):
                     continue
                 clean_pname = p.stem.lower().replace("-", "_")
                 if clean_target in clean_pname or clean_pname.startswith(clean_target):
                     files.append(p)
 
         if not files:
-            files = list(parquet_dir.glob("*.parquet")) if parquet_dir.exists() else []
+            try:
+                from app.services.workspace_service import EnterpriseWorkspaceManager
+                ws = EnterpriseWorkspaceManager.get_workspace(workspace_id)
+                if ws and isinstance(ws, dict):
+                    for t in ws.get("tables", []):
+                        fp = t.get("file_path")
+                        if fp:
+                            p = Path(fp)
+                            if not p.exists():
+                                p = STORAGE_DIR / p.name
+                            if p.exists() and p.is_file():
+                                files.append(p)
+            except Exception:
+                pass
 
         return max((p.stat().st_mtime for p in files), default=0.0)
 
@@ -438,7 +451,7 @@ class SemanticModelEngine:
         parquet_files = []
         if parquet_dir.exists():
             for p in parquet_dir.glob("*.parquet"):
-                if p.name.startswith("unified_") or p.name.startswith("tmp_") or p.name.startswith("sample-"):
+                if p.name.startswith(("unified_", "tmp_", "sample-", "ds-bench-", "test_")):
                     continue
                 clean_pname = p.stem.lower().replace("-", "_")
                 if clean_target in clean_pname or clean_pname.startswith(clean_target):
@@ -454,6 +467,14 @@ class SemanticModelEngine:
                         fp = t.get("file_path")
                         if fp:
                             p = Path(fp)
+                            if not p.exists():
+                                p = STORAGE_DIR / p.name
+                            if not p.exists():
+                                t_name = t.get("table_name", "")
+                                if t_name:
+                                    for cand in STORAGE_DIR.glob(f"*{t_name}*.parquet"):
+                                        p = cand
+                                        break
                             if p.exists() and p.is_file():
                                 parquet_files.append(p)
             except Exception:

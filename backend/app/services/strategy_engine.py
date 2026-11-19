@@ -22,6 +22,8 @@ class StrategyDecisionEngine:
     4. Board Meeting Report Briefing.
     """
 
+    _baseline_cache: Dict[str, Dict[str, Any]] = {}
+
     @classmethod
     def _get_profile_columns(cls, profile: Dict[str, Any]) -> Dict[str, Optional[str]]:
         def _first(val):
@@ -233,16 +235,44 @@ class StrategyDecisionEngine:
 
         safe_table = _validate_identifier(table_name) if table_name else None
 
-        # Baseline metrics
-        base_revenue = cls._safe_sum(con, safe_table, rev_col)
-        base_volume = cls._safe_sum(con, safe_table, qty_col, cast=int)
-        base_customers = cls._safe_count_distinct(con, safe_table, cust_col)
-        base_profit = cls._safe_sum(con, safe_table, profit_col)
-        base_cost = cls._safe_sum(con, safe_table, cost_col)
-        base_discount = cls._safe_sum(con, safe_table, discount_col)
-        base_shipping = cls._safe_sum(con, safe_table, shipping_col)
-        base_inventory = cls._safe_sum(con, safe_table, inventory_col)
-        base_return_rate = cls._safe_avg(con, safe_table, return_col)
+        # Baseline metrics with caching across scenarios
+        cache_key = f"{safe_table}:{rev_col}:{qty_col}:{profit_col}:{cost_col}"
+        cached_base = cls._baseline_cache.get(cache_key) if safe_table else None
+        if cached_base is not None:
+            base_revenue = cached_base["revenue"]
+            base_volume = cached_base["volume"]
+            base_customers = cached_base["customers"]
+            base_profit = cached_base["profit"]
+            base_cost = cached_base["cost"]
+            base_discount = cached_base["discount"]
+            base_shipping = cached_base["shipping"]
+            base_inventory = cached_base["inventory"]
+            base_return_rate = cached_base["return_rate"]
+            default_elasticity = cached_base["price_elasticity"]
+        else:
+            base_revenue = cls._safe_sum(con, safe_table, rev_col)
+            base_volume = cls._safe_sum(con, safe_table, qty_col, cast=int)
+            base_customers = cls._safe_count_distinct(con, safe_table, cust_col)
+            base_profit = cls._safe_sum(con, safe_table, profit_col)
+            base_cost = cls._safe_sum(con, safe_table, cost_col)
+            base_discount = cls._safe_sum(con, safe_table, discount_col)
+            base_shipping = cls._safe_sum(con, safe_table, shipping_col)
+            base_inventory = cls._safe_sum(con, safe_table, inventory_col)
+            base_return_rate = cls._safe_avg(con, safe_table, return_col)
+            default_elasticity = cls._infer_price_elasticity(con, safe_table, price_col, qty_col, rev_col)
+            if safe_table:
+                cls._baseline_cache[cache_key] = {
+                    "revenue": base_revenue,
+                    "volume": base_volume,
+                    "customers": base_customers,
+                    "profit": base_profit,
+                    "cost": base_cost,
+                    "discount": base_discount,
+                    "shipping": base_shipping,
+                    "inventory": base_inventory,
+                    "return_rate": base_return_rate,
+                    "price_elasticity": default_elasticity,
+                }
 
         # Fallback profit calculation
         if base_profit is None and base_revenue is not None and base_cost is not None:
@@ -255,7 +285,7 @@ class StrategyDecisionEngine:
         # Configurable elasticity multipliers (inferred from dataset when possible)
         # ------------------------------------------------------------------
         overrides = elasticity_overrides or {}
-        price_elasticity = overrides.get("price_elasticity", cls._infer_price_elasticity(con, safe_table, price_col, qty_col, rev_col))
+        price_elasticity = overrides.get("price_elasticity", default_elasticity)
         marketing_roi_multiplier = overrides.get("marketing_roi_multiplier", 0.35)
         discount_retention_multiplier = overrides.get("discount_retention_multiplier", 0.80)
         inventory_sensitivity = overrides.get("inventory_sensitivity", 0.30)

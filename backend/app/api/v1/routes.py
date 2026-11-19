@@ -29,9 +29,12 @@ from app.api.v1.intelligence_api import router as intelligence_router
 from app.api.v1.dynamic_kpi_api import router as dynamic_kpi_router
 from app.api.v1.strategy_api import router as strategy_router
 from app.api.v1.jobs_api import router as jobs_router, ingestion_router
+from app.api.v1.investigations_api import router as investigations_router
 
 
 api_router = APIRouter()
+
+api_router.include_router(investigations_router)
 
 api_router.include_router(jobs_router)
 api_router.include_router(ingestion_router)

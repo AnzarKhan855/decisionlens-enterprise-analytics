@@ -30,8 +30,13 @@ from app.schemas.strategy import (
 from app.services.analytics_cache_service import AnalyticsCacheService
 from app.services.strategy_engine import StrategyDecisionEngine
 from app.services.workspace_service import EnterpriseWorkspaceManager
+from app.cache.memory_cache import TTLCache
+import threading
 
 logger = get_logger(__name__)
+
+_strategy_memory_cache = TTLCache(maxsize=32, ttl=600)
+_strategy_lock = threading.Lock()
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -118,6 +123,10 @@ class EnterpriseStrategyEngine:
 
     @classmethod
     def analyze(cls, workspace_id: str) -> Dict[str, Any]:
+        cached_mem = _strategy_memory_cache.get(workspace_id)
+        if cached_mem is not None:
+            return cached_mem
+
         now_dt = datetime.now(UTC)
         now = now_dt.isoformat()
         try:
@@ -130,28 +139,37 @@ class EnterpriseStrategyEngine:
                 if (now_dt - gen_dt).total_seconds() < 300:
                     if "_id" in existing:
                         existing["_id"] = str(existing["_id"])
+                    _strategy_memory_cache.set(workspace_id, existing)
                     return existing
         except Exception:
             pass
 
-        analytics = cls._get_analytics_result(workspace_id)
-        profile = cls._get_profile(workspace_id)
-        parquet_path = cls._get_parquet_path(workspace_id)
-        con = cls._get_duckdb_connection(parquet_path)
-        table_name = "strategy_view" if con else None
+        with _strategy_lock:
+            # Re-check memory cache inside lock
+            cached_mem = _strategy_memory_cache.get(workspace_id)
+            if cached_mem is not None:
+                return cached_mem
 
-        try:
-            report = cls._build_strategy_report(workspace_id, analytics, profile, con, table_name, now)
-        except Exception as exc:
-            logger.warning("[StrategyEngine] Strategy build failed, returning fallback: %s", exc)
-            report = cls._build_fallback_strategy_report(workspace_id, now)
+            analytics = cls._get_analytics_result(workspace_id)
+            profile = cls._get_profile(workspace_id)
+            parquet_path = cls._get_parquet_path(workspace_id)
+            con = cls._get_duckdb_connection(parquet_path)
+            table_name = "strategy_view" if con else None
 
-        try:
-            strategy_reports.insert_one(report.to_dict())
-        except Exception as exc:
-            logger.warning("[StrategyEngine] MongoDB insert failed: %s", exc)
+            try:
+                report = cls._build_strategy_report(workspace_id, analytics, profile, con, table_name, now)
+            except Exception as exc:
+                logger.warning("[StrategyEngine] Strategy build failed, returning fallback: %s", exc)
+                report = cls._build_fallback_strategy_report(workspace_id, now)
 
-        return report.to_dict()
+            report_dict = report.to_dict()
+            try:
+                strategy_reports.insert_one(dict(report_dict))
+            except Exception as exc:
+                logger.warning("[StrategyEngine] MongoDB insert failed: %s", exc)
+
+            _strategy_memory_cache.set(workspace_id, report_dict)
+            return report_dict
 
     @classmethod
     def _build_fallback_strategy_report(cls, workspace_id: str, generated_at: str) -> StrategyReport:

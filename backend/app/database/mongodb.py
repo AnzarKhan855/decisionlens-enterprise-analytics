@@ -21,7 +21,17 @@ _db = None
 def get_client() -> MongoClient:
     global _client
     if _client is None:
-        _client = MongoClient(MONGODB_URL, serverSelectionTimeoutMS=5000)
+        _client = MongoClient(
+            MONGODB_URL,
+            serverSelectionTimeoutMS=3000,
+            connectTimeoutMS=3000,
+            socketTimeoutMS=5000,
+            maxPoolSize=50,
+            minPoolSize=5,
+            maxIdleTimeMS=60000,
+            retryWrites=True,
+            connect=False,
+        )
     return _client
 
 
@@ -128,6 +138,7 @@ user_feedback = _CollectionProxy("user_feedback")
 business_milestones = _CollectionProxy("business_milestones")
 dynamic_kpis = _CollectionProxy("dynamic_kpis")
 dashboard_layouts = _CollectionProxy("dashboard_layouts")
+investigations = _CollectionProxy("investigations")
 
 
 # Strategy Engine Collections
