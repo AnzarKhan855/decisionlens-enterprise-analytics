@@ -38,8 +38,10 @@ def _get_report_data(dataset_id: Optional[str] = None):
             return_analytics_result=True
         )
 
-        if dataset_id and isinstance(dashboard, dict) and not dashboard.get("workspace_exists") and analytics_result is None:
-            raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
+        if dataset_id and isinstance(dashboard, dict) and dashboard.get("workspace_exists") is False and analytics_result is None:
+            from app.services.workspace_service import EnterpriseWorkspaceManager
+            if not EnterpriseWorkspaceManager.get_workspace(dataset_id):
+                raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
 
         from app.semantic_model.core import SemanticModel
 
@@ -68,6 +70,14 @@ def _get_report_data(dataset_id: Optional[str] = None):
             semantic_model=sm,
             prediction_result=predictions,
         )
+
+        try:
+            from app.reports.role_based_report_engine import MultiTableQueryHelper, RoleBasedReportEngine
+            _, table_dict, detected_tables = MultiTableQueryHelper.initialize_workspace(active_ws)
+            report["detected_tables"] = detected_tables
+            report["role_availability"] = RoleBasedReportEngine._check_role_availability(table_dict)
+        except Exception as avail_err:
+            logger.debug(f"[Role Availability] Non-fatal: {avail_err}")
 
         if "sections" in report:
             for section_name, section_data in report["sections"].items():
@@ -111,7 +121,7 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
         active_ws = dataset_id or EnterpriseWorkspaceManager.get_active_workspace_id() or "latest"
         try:
             cached_doc = mongo_reports.find_one({"dataset_id": active_ws, "audience": audience})
-            if cached_doc and cached_doc.get("report"):
+            if cached_doc and cached_doc.get("report") and "breakdown_tables" in cached_doc["report"]:
                 return cached_doc["report"]
         except Exception:
             pass
@@ -121,8 +131,10 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
             return_analytics_result=True
         )
 
-        if dataset_id and isinstance(dashboard, dict) and not dashboard.get("workspace_exists") and analytics_result is None:
-            raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
+        if dataset_id and isinstance(dashboard, dict) and dashboard.get("workspace_exists") is False and analytics_result is None:
+            from app.services.workspace_service import EnterpriseWorkspaceManager
+            if not EnterpriseWorkspaceManager.get_workspace(dataset_id):
+                raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
 
         sm = None
         if analytics_result and getattr(analytics_result, "semantic_model", None):
@@ -150,6 +162,7 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
             semantic_model=sm,
             audience=audience,
             predictions=predictions,
+            extra_context={"workspace_id": active_ws, "dataset_id": dataset_id},
         )
 
         try:
@@ -260,49 +273,73 @@ def trigger_report_generation(
     }
 
 
+ROLE_AUDIENCES = (
+    "ceo", "cfo", "coo", "cmo", "chro", "cro", "cpo", "cdo", "cio",
+    "sales director", "sales_director", "sales", "supply chain head", "supply chain", "board"
+)
+
+
 @router.get("/export/csv")
-def export_kpi_csv(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+@router.get("/export/kpi-csv")
+def export_kpi_csv(
+    dataset_id: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    audience: Optional[str] = None
+):
     target = workspace_id or dataset_id
-    res = get_dynamic_dashboard(target)
-    dashboard = res[0] if isinstance(res, tuple) else res
-    kpis = [k for k in dashboard.get("kpis", []) if isinstance(k, dict) and k.get("available")]
+    if audience and audience.lower() in ROLE_AUDIENCES:
+        role_rep = _get_role_report_data(target, audience.upper())
+        kpis = role_rep.get("kpis", [])
+    else:
+        res = get_dynamic_dashboard(target)
+        dashboard = res[0] if isinstance(res, tuple) else res
+        kpis = [k for k in dashboard.get("kpis", []) if isinstance(k, dict) and k.get("available")]
 
     csv_lines = [
-        "KPI Name,Metric Value,Source Column,Calculation,Confidence,Status"
+        "KPI Name,Metric Value,Source Column,Calculation,Confidence,Status,Insight"
     ]
     for k in kpis:
         csv_lines.append(
             f'"{k.get("name")}","{k.get("value")}","{k.get("source_column")}",'
-            f'"{k.get("formula")}","{k.get("confidence")}","{k.get("status")}"'
+            f'"{k.get("formula") or k.get("calculation")}","{k.get("confidence")}","{k.get("status")}","{k.get("insight")}"'
         )
 
     csv_content = "\n".join(csv_lines)
+    role_suffix = f"_{audience.lower()}" if audience else ""
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=decisionlens_kpi_report_{target or 'latest'}.csv"},
+        headers={"Content-Disposition": f"attachment; filename=decisionlens{role_suffix}_kpi_report_{target or 'latest'}.csv"},
     )
 
 
 @router.get("/export/summary")
-def export_executive_summary(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
+def export_executive_summary(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: Optional[str] = None):
     target = workspace_id or dataset_id
-    report = _get_report_data(target)
+    if audience and audience.lower() in ROLE_AUDIENCES:
+        report = _get_role_report_data(target, audience.upper())
+    else:
+        report = _get_report_data(target)
     exec_summary = report.get("sections", {}).get("executive_summary", {})
 
     summary_doc = {
-        "title": "DecisionLens Executive Intelligence Report",
+        "title": report.get("report_title", "DecisionLens Executive Intelligence Report"),
         "generated_at": report.get("generated_at"),
         "domain": report.get("domain"),
         "dataset_type": report.get("dataset_type"),
+        "audience": audience or report.get("audience", "CEO"),
         "executive_summary": exec_summary,
+        "kpis": report.get("kpis", []),
+        "breakdown_tables": report.get("breakdown_tables", []),
+        "findings": report.get("findings", []),
+        "recommendations": report.get("recommendations", []),
         "sections": report.get("sections", {}),
     }
 
     return Response(
         content=json.dumps(summary_doc, indent=2),
         media_type="application/json",
-        headers={"Content-Disposition": f"attachment; filename=decisionlens_executive_summary_{dataset_id or 'latest'}.json"},
+        headers={"Content-Disposition": f"attachment; filename=decisionlens_{audience.lower() if audience else 'executive'}_summary_{dataset_id or 'latest'}.json"},
     )
 
 
@@ -310,9 +347,9 @@ def export_executive_summary(dataset_id: Optional[str] = None, workspace_id: Opt
 def export_pdf(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
     try:
         target = workspace_id or dataset_id
-        if audience.lower() in ("ceo", "cfo", "coo", "cmo", "sales director", "supply chain head", "board"):
+        if audience.lower() in ROLE_AUDIENCES:
             report = _get_role_report_data(target, audience.upper())
-            title = report.get("report_title", f"{audience} Report")
+            title = report.get("report_title", f"{audience.upper()} Report")
         else:
             report = _get_report_data(target)
             title = "DecisionLens Executive Report"
@@ -332,9 +369,9 @@ def export_pdf(dataset_id: Optional[str] = None, workspace_id: Optional[str] = N
 def export_docx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
     try:
         target = workspace_id or dataset_id
-        if audience.lower() in ("ceo", "cfo", "coo", "cmo", "sales director", "supply chain head", "board"):
+        if audience.lower() in ROLE_AUDIENCES:
             report = _get_role_report_data(target, audience.upper())
-            title = report.get("report_title", f"{audience} Report")
+            title = report.get("report_title", f"{audience.upper()} Report")
         else:
             report = _get_report_data(target)
             title = "DecisionLens Executive Report"
@@ -354,9 +391,9 @@ def export_docx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = 
 def export_pptx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: str = "executive"):
     try:
         target = workspace_id or dataset_id
-        if audience.lower() in ("ceo", "cfo", "coo", "cmo", "sales director", "supply chain head", "board"):
+        if audience.lower() in ROLE_AUDIENCES:
             report = _get_role_report_data(target, audience.upper())
-            title = report.get("report_title", f"{audience} Report")
+            title = report.get("report_title", f"{audience.upper()} Report")
         else:
             report = _get_report_data(target)
             title = "DecisionLens Executive Report"
@@ -377,12 +414,18 @@ def export_xlsx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = 
     try:
         from app.reports.exporters import XLSXExporter
         target = workspace_id or dataset_id
-        report = _get_report_data(target)
-        xlsx_bytes = XLSXExporter.export(report, title="DecisionLens Executive Report")
+        if audience.lower() in ROLE_AUDIENCES:
+            report = _get_role_report_data(target, audience.upper())
+            title = report.get("report_title", f"{audience.upper()} Report")
+        else:
+            report = _get_report_data(target)
+            title = "DecisionLens Executive Report"
+
+        xlsx_bytes = XLSXExporter.export(report, title=title)
         return Response(
             content=xlsx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=decisionlens_report_{target or 'latest'}.xlsx"},
+            headers={"Content-Disposition": f"attachment; filename=decisionlens_{audience.lower().replace(' ', '_')}_report_{target or 'latest'}.xlsx"},
         )
     except Exception as e:
         logger.error("[XLSX Export] %s", e)
@@ -390,8 +433,8 @@ def export_xlsx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = 
 
 
 @router.get("/export/json")
-def export_json(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None):
-    return export_executive_summary(dataset_id=dataset_id, workspace_id=workspace_id)
+def export_json(dataset_id: Optional[str] = None, workspace_id: Optional[str] = None, audience: Optional[str] = None):
+    return export_executive_summary(dataset_id=dataset_id, workspace_id=workspace_id, audience=audience)
 
 
 @router.get("/role/{audience}")

@@ -42,6 +42,19 @@ _STRUCTURE_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 _STRUCTURE_CACHE_TTL = 60.0
 
 
+def _sanitize_non_finite_floats(obj: Any) -> Any:
+    import math
+    if isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_non_finite_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_non_finite_floats(v) for v in obj]
+    return obj
+
+
 async def run_workspace_background_intelligence(ws_id: str):
     import asyncio
     try:
@@ -217,6 +230,10 @@ def run_workspace_zip_pipeline(
 
                 # Convert to Parquet EXACTLY ONCE
                 parquet_path = GenericDataLoader.convert_to_parquet(df_path, unique_dataset_id)
+                try:
+                    ParquetStorageManager.persist_to_gridfs(parquet_path, parquet_path.name)
+                except Exception as gfs_exc:
+                    logger.debug(f"[GridFS Save Non-Fatal] {gfs_exc}")
 
                 # First successful table: classify domain & initialize workspace metadata
                 if len(succeeded_files) == 0:
@@ -727,11 +744,15 @@ async def upload_workspace_folder(
 
                 unique_dataset_id = f"{ws_id}__{table_name}"
                 parquet_path = GenericDataLoader.convert_to_parquet(tmp_path, unique_dataset_id)
+                try:
+                    ParquetStorageManager.persist_to_gridfs(parquet_path, parquet_path.name)
+                except Exception as gfs_exc:
+                    logger.debug(f"[GridFS Save Non-Fatal] {gfs_exc}")
                 profile = SemanticDataProfiler.profile(parquet_path)
                 precomputed_profiles[str(parquet_path)] = profile
 
                 cols = [
-                    {"name": c, "type": profile["columns"][c].get("inferred_type", "VARCHAR")}
+                    {"name": c, "type": profile["columns"][c].get("data_type") or profile["columns"][c].get("inferred_type", "VARCHAR")}
                     for c in profile["columns"]
                 ]
                 row_cnt = profile.get("total_rows", 0)
@@ -954,6 +975,7 @@ def get_workspace_structure(workspace_id: Optional[str] = Query(None)):
             "response_time_ms": round(elapsed_ms, 2)
         }
 
+        response = _sanitize_non_finite_floats(response)
         _STRUCTURE_CACHE[cache_key] = (time.time(), response)
         return response
     except Exception as e:

@@ -400,6 +400,12 @@ class IngestionJobService:
             if not parquet_path.exists() or parquet_path.stat().st_size == 0:
                 raise ValueError("Parquet conversion resulted in an empty or missing file.")
 
+            try:
+                from app.database.storage import ParquetStorageManager
+                ParquetStorageManager.persist_to_gridfs(parquet_path, parquet_path.name)
+            except Exception as gfs_exc:
+                logger.debug(f"[GridFS Ingestion Save] Non-fatal: {gfs_exc}")
+
             timings["parquet_conversion_ms"] = round((time.perf_counter() - t0) * 1000, 2)
 
             # ------------------------------------------------------------------

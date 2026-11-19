@@ -83,7 +83,8 @@ class PDFExporter:
 
             sections = report.get("sections", {})
             section_order = [
-                "executive_summary", "business_health", "kpi_summary", "kpi_overview",
+                "executive_summary", "business_health", "kpi_summary", "kpi_overview", "financial_kpis",
+                "marketing_kpis", "governance_kpis", "breakdown_tables",
                 "revenue", "customers", "products", "categories", "trend_analysis",
                 "forecast", "root_cause_analysis", "risks", "opportunities",
                 "recommendations", "evidence", "charts", "what_if_analysis",
@@ -145,6 +146,37 @@ class PDFExporter:
         from reportlab.lib.styles import ParagraphStyle
 
         elements = []
+        if "columns" in d and "rows" in d and isinstance(d["columns"], list) and isinstance(d["rows"], list):
+            try:
+                table_title = d.get("title", "")
+                if table_title:
+                    elements.append(Paragraph(f"<b>{table_title}</b>", style))
+                    elements.append(Spacer(1, 4))
+                desc = d.get("description", "")
+                if desc:
+                    elements.append(Paragraph(f"<i>{desc}</i>", style))
+                    elements.append(Spacer(1, 4))
+
+                table_data = [[Paragraph(f"<b>{c}</b>", style) for c in d["columns"]]]
+                for row in d["rows"][:25]:
+                    table_data.append([Paragraph(str(cell), style) for cell in row])
+                t = Table(table_data)
+                t.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#f8f9fa")]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                elements.append(t)
+                elements.append(Spacer(1, 10))
+                return elements
+            except Exception as texc:
+                logger.debug(f"[PDF Table Render] {texc}")
+
         bullet_style = ParagraphStyle(
             "Bullet",
             parent=style,
@@ -206,7 +238,8 @@ class DOCXExporter:
 
             sections = report.get("sections", {})
             section_order = [
-                "executive_summary", "business_health", "kpi_summary", "kpi_overview",
+                "executive_summary", "business_health", "kpi_summary", "kpi_overview", "financial_kpis",
+                "marketing_kpis", "governance_kpis", "breakdown_tables",
                 "revenue", "customers", "products", "categories", "trend_analysis",
                 "forecast", "root_cause_analysis", "risks", "opportunities",
                 "recommendations", "evidence", "charts", "what_if_analysis",
@@ -326,7 +359,8 @@ class PPTXExporter:
 
             sections = report.get("sections", {})
             section_order = [
-                "executive_summary", "business_health", "kpi_summary", "kpi_overview",
+                "executive_summary", "business_health", "kpi_summary", "kpi_overview", "financial_kpis",
+                "marketing_kpis", "governance_kpis", "breakdown_tables",
                 "revenue", "customers", "products", "categories", "trend_analysis",
                 "forecast", "root_cause_analysis", "risks", "opportunities",
                 "recommendations", "evidence", "charts", "what_if_analysis",

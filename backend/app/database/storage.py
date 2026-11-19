@@ -19,6 +19,7 @@ UPLOAD_ZIP_DIR = BASE_DIR / "storage" / "zips"
 class ParquetStorageManager:
     """
     Manages physical storage of raw uploads, compressed Parquet files, extracted folders, and ZIP archives.
+    Integrates with MongoDB GridFS for persistent multi-container cross-restart data continuity.
     """
 
     _SYSTEM_FILE_PREFIXES = ("sample-", "unified_", "tmp_", "ds-bench-", "test_")
@@ -31,9 +32,91 @@ class ParquetStorageManager:
         UPLOAD_ZIP_DIR.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _get_gridfs():
+        try:
+            import gridfs
+            from app.database.mongodb import get_database
+            db = get_database()
+            return gridfs.GridFS(db)
+        except Exception as e:
+            logger.debug(f"[GridFS] Connection unavailable: {e}")
+            return None
+
+    @staticmethod
+    def persist_to_gridfs(file_path: Path, filename: Optional[str] = None, metadata: Optional[dict] = None) -> bool:
+        """Saves a parquet or data file to MongoDB GridFS for persistent cross-container storage."""
+        if not file_path.exists():
+            return False
+        fs = ParquetStorageManager._get_gridfs()
+        if fs is None:
+            return False
+        try:
+            fn = filename or file_path.name
+            for existing in fs.find({"filename": fn}):
+                fs.delete(existing._id)
+            with open(file_path, "rb") as f:
+                fs.put(f, filename=fn, metadata=metadata or {})
+            logger.info(f"[GridFS Persisted] {fn} ({file_path.stat().st_size} bytes)")
+            return True
+        except Exception as e:
+            logger.warning(f"[GridFS Save Warning] {file_path.name}: {e}")
+            return False
+
+    @staticmethod
+    def restore_from_gridfs(filename: str, target_path: Optional[Path] = None) -> Optional[Path]:
+        """Restores a file from MongoDB GridFS if missing from local storage."""
+        ParquetStorageManager.ensure_directories()
+        out_path = target_path or (STORAGE_DIR / filename)
+        if out_path.exists() and out_path.stat().st_size > 0:
+            return out_path
+        fs = ParquetStorageManager._get_gridfs()
+        if fs is None:
+            return None
+        try:
+            grid_out = fs.find_one({"filename": filename})
+            if not grid_out:
+                grid_out = fs.find_one({"filename": {"$regex": f"{filename}$"}})
+            if grid_out:
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(out_path, "wb") as f:
+                    f.write(grid_out.read())
+                logger.info(f"[GridFS Restored] {filename} -> {out_path} ({out_path.stat().st_size} bytes)")
+                return out_path
+        except Exception as e:
+            logger.debug(f"[GridFS Restore Warning] {filename}: {e}")
+        return None
+
+    @staticmethod
+    def restore_workspace_from_gridfs(workspace_id: str) -> List[Path]:
+        """Restores all table parquet files for a given workspace from MongoDB GridFS."""
+        ParquetStorageManager.ensure_directories()
+        fs = ParquetStorageManager._get_gridfs()
+        if fs is None:
+            return []
+        restored: List[Path] = []
+        try:
+            pattern = f"^{workspace_id}__"
+            for grid_out in fs.find({"filename": {"$regex": pattern}}):
+                dest = STORAGE_DIR / grid_out.filename
+                if not dest.exists() or dest.stat().st_size == 0:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with open(dest, "wb") as f:
+                        f.write(grid_out.read())
+                    logger.info(f"[GridFS Restored WS File] {grid_out.filename} ({dest.stat().st_size} bytes)")
+                restored.append(dest)
+        except Exception as e:
+            logger.debug(f"[GridFS Restore WS Warning] {workspace_id}: {e}")
+        return restored
+
+    @staticmethod
     def get_parquet_path(dataset_id: str) -> Path:
         ParquetStorageManager.ensure_directories()
-        return STORAGE_DIR / f"{dataset_id}.parquet"
+        target = STORAGE_DIR / f"{dataset_id}.parquet"
+        if not target.exists():
+            restored = ParquetStorageManager.restore_from_gridfs(f"{dataset_id}.parquet", target)
+            if restored and restored.exists():
+                return restored
+        return target
 
     @staticmethod
     def get_parquet_path_for_workspace(dataset_id: str) -> Optional[Path]:
@@ -63,6 +146,31 @@ class ParquetStorageManager:
                 if pfile.name not in seen_files:
                     seen_files.add(pfile.name)
                     matched_files.append(pfile)
+
+        # If no local files matched, attempt to restore from GridFS
+        if not matched_files:
+            restored = ParquetStorageManager.restore_workspace_from_gridfs(dataset_id)
+            if restored:
+                for r in restored:
+                    if r.name not in seen_files:
+                        seen_files.add(r.name)
+                        matched_files.append(r)
+
+        # Also check EnterpriseWorkspaceManager tables and restore them if needed
+        if not matched_files:
+            try:
+                from app.services.workspace_service import EnterpriseWorkspaceManager
+                ws_info = EnterpriseWorkspaceManager.get_workspace(dataset_id)
+                if ws_info and ws_info.get("tables"):
+                    for tbl in ws_info["tables"]:
+                        fn = Path(tbl.get("file_path", "")).name
+                        if fn:
+                            res = ParquetStorageManager.restore_from_gridfs(fn)
+                            if res and res.exists() and res.name not in seen_files:
+                                seen_files.add(res.name)
+                                matched_files.append(res)
+            except Exception:
+                pass
 
         candidates: List[Tuple[int, int, Path]] = []
 
@@ -166,5 +274,15 @@ class ParquetStorageManager:
                             deleted_count += 1
                     except Exception as e:
                         logger.warning(f"[Purge Warning] Failed to delete zip {zfile}: {e}")
+
+        # Delete from MongoDB GridFS
+        fs = ParquetStorageManager._get_gridfs()
+        if fs:
+            try:
+                for grid_f in fs.find({"filename": {"$regex": f"^{dataset_id}"}}):
+                    fs.delete(grid_f._id)
+                    deleted_count += 1
+            except Exception as e:
+                logger.debug(f"[GridFS Purge Warning] {dataset_id}: {e}")
 
         return deleted_count

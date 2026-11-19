@@ -1,4 +1,5 @@
 import json
+import math
 import time
 import uuid
 from pathlib import Path
@@ -6,6 +7,18 @@ from typing import Dict, Any, List, Optional
 from app.database.storage import STORAGE_DIR
 
 VERSIONS_FILE = STORAGE_DIR / "semantic_model_versions.json"
+
+
+def _sanitize_floats(obj: Any) -> Any:
+    if isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_floats(v) for v in obj]
+    return obj
 
 
 class SemanticModelVersionEngine:
@@ -42,8 +55,11 @@ class SemanticModelVersionEngine:
         notes: str = "Automated semantic model commit"
     ) -> Dict[str, Any]:
         cls._load()
-        if workspace_id not in cls._versions:
-            cls._versions[workspace_id] = []
+        if not isinstance(cls._versions.get(workspace_id), list):
+            if isinstance(cls._versions.get(workspace_id), dict) and "version_id" in cls._versions[workspace_id]:
+                cls._versions[workspace_id] = [cls._versions[workspace_id]]
+            else:
+                cls._versions[workspace_id] = []
 
         history = cls._versions[workspace_id]
         version_number = len(history) + 1
@@ -59,8 +75,9 @@ class SemanticModelVersionEngine:
             "notes": notes,
             "author": author,
             "timestamp": dt_str,
-            "semantic_model": semantic_model
+            "semantic_model": _sanitize_floats(semantic_model)
         }
+        v_obj = _sanitize_floats(v_obj)
 
         history.append(v_obj)
         cls._save()

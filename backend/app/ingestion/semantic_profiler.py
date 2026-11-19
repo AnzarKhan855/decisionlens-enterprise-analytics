@@ -128,12 +128,23 @@ class SemanticDataProfiler:
             for col in numeric_cols:
                 col_esc = f'"{col}"'
                 ck = _safe_key(col)
-                num_exprs.append(f'COUNT({col_esc}) as cnt_{ck}, SUM({col_esc}) as sum_{ck}, COUNT(*) - COUNT({col_esc}) as null_{ck}, COUNT(DISTINCT {col_esc}) as dist_{ck}, MIN({col_esc}) as min_{ck}, MAX({col_esc}) as max_{ck}, AVG({col_esc}) as avg_{ck}, STDDEV_SAMP({col_esc}) as std_{ck}')
+                finite_col = f"CASE WHEN {col_esc} = 'Infinity'::DOUBLE OR {col_esc} = '-Infinity'::DOUBLE OR isnan({col_esc}) THEN NULL ELSE {col_esc} END"
+                num_exprs.append(f'COUNT({col_esc}) as cnt_{ck}, SUM({finite_col}) as sum_{ck}, COUNT(*) - COUNT({col_esc}) as null_{ck}, COUNT(DISTINCT {col_esc}) as dist_{ck}, MIN({finite_col}) as min_{ck}, MAX({finite_col}) as max_{ck}, AVG({finite_col}) as avg_{ck}, STDDEV_SAMP({finite_col}) as std_{ck}')
             if total_rows > 100000:
                 sql = f"SELECT {', '.join(num_exprs)} FROM read_parquet('{path_str}') USING SAMPLE 50000"
             else:
                 sql = f"SELECT {', '.join(num_exprs)} FROM read_parquet('{path_str}')"
-            row = DuckDBEngine.query(sql)[0]
+            try:
+                res = DuckDBEngine.query(sql)
+                row = res[0] if res else {}
+            except Exception as e:
+                logger.warning(f"[SemanticDataProfiler] Numeric aggregate failed: {e}")
+                fallback_exprs = [f'COUNT("{col}") as cnt_{_safe_key(col)}, COUNT(*) - COUNT("{col}") as null_{_safe_key(col)}, COUNT(DISTINCT "{col}") as dist_{_safe_key(col)}' for col in numeric_cols]
+                try:
+                    res = DuckDBEngine.query(f"SELECT {', '.join(fallback_exprs)} FROM read_parquet('{path_str}')")
+                    row = res[0] if res else {}
+                except Exception:
+                    row = {}
             for col in numeric_cols:
                 col_key = _safe_key(col)
                 dist_cnt = row.get(f"dist_{col_key}", 0)

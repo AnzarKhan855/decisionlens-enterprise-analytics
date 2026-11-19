@@ -284,6 +284,11 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
         cache_key = f"dashboard:{active_ws}:{parquet_path}"
         cached = _dashboard_cache.get(cache_key, workspace_id=active_ws)
         if cached is not None:
+            if isinstance(cached, tuple) and len(cached) == 2:
+                dash_dict, cached_ar = cached
+                if return_analytics_result:
+                    return dash_dict, cached_ar
+                return dash_dict
             if return_analytics_result:
                 analytics_obj = None
                 try:
@@ -444,10 +449,11 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
         )
 
         result = dashboard.model_dump() if hasattr(dashboard, "model_dump") else dashboard.__dict__
+        result["workspace_exists"] = True
         result["errors"] = result.get("errors", []) or []
         if "charts" in result and result["charts"]:
             result["charts"] = validate_charts(result["charts"])
-        _dashboard_cache.set(cache_key, result, ttl=600.0, workspace_id=active_ws)
+        _dashboard_cache.set(cache_key, (result, analytics_result), ttl=600.0, workspace_id=active_ws)
         if return_analytics_result:
             return result, analytics_result
         return result
