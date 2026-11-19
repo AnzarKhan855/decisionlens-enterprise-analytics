@@ -6,6 +6,8 @@ import api, { getCached } from "@/lib/api";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ErrorState from "@/components/ui/ErrorState";
 import InsightExplanationModal, { InsightDetail } from "@/components/dashboard/InsightExplanationModal";
+import RealtimeProgressModal from "@/components/ui/RealtimeProgressModal";
+import { useProgressModal } from "@/lib/useProgressModal";
 import {
   Zap,
   CheckCircle2,
@@ -46,6 +48,36 @@ export default function ExecutiveDecisionCenterPage() {
   const [activeFilter, setActiveFilter] = useState<string>("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [activeInsight, setActiveInsight] = useState<InsightDetail | null>(null);
+  const progress = useProgressModal();
+
+  async function handleRunStrategySimulation() {
+    progress.startProgress({
+      title: "Executive Strategy Simulation",
+      subtitle: "Evaluating decision tree branches and ROI",
+      stages: [
+        "Fetching baseline analytical metrics",
+        "Evaluating Monte Carlo What-If models",
+        "Assessing operational risk factors",
+        "Ranking strategic actions by ROI",
+      ],
+      doneButtonText: "View Decisions",
+    });
+
+    try {
+      progress.setProgressStage(0, 25, "Fetching baseline analytical metrics");
+      await new Promise((r) => setTimeout(r, 150));
+
+      progress.setProgressStage(1, 55, "Evaluating Monte Carlo What-If models");
+      await fetchWorkspaceAndDecisions(true);
+
+      progress.setProgressStage(2, 85, "Ranking strategic actions by ROI");
+      await new Promise((r) => setTimeout(r, 150));
+
+      progress.completeProgress(undefined, "Strategic decisions synchronized!");
+    } catch (err: any) {
+      progress.failProgress(err.message || "Failed to simulate decisions.");
+    }
+  }
 
   useEffect(() => {
     fetchWorkspaceAndDecisions();
@@ -248,6 +280,13 @@ export default function ExecutiveDecisionCenterPage() {
         </div>
 
         <div className="flex items-center gap-3 self-start md:self-auto">
+          <button
+            onClick={() => handleRunStrategySimulation()}
+            className="px-5 py-3.5 bg-surface text-text-primary hover:bg-surface-muted text-xs font-extrabold rounded-2xl border border-border-color transition-all flex items-center gap-2 shadow-sm"
+          >
+            <RefreshCw className="w-4 h-4 text-primary-500" />
+            <span>Re-evaluate Decisions</span>
+          </button>
           <Link
             href="/dynamic-dashboard"
             className="px-6 py-3.5 bg-primary-600 hover:bg-primary-500 text-white text-xs font-extrabold rounded-2xl transition-all shadow-lg shadow-primary-600/30 flex items-center gap-2"
@@ -353,6 +392,20 @@ export default function ExecutiveDecisionCenterPage() {
           </div>
         ))}
       </div>
+      <RealtimeProgressModal
+        isOpen={progress.isOpen}
+        onClose={progress.closeModal}
+        title={progress.title}
+        subtitle={progress.subtitle}
+        percentage={progress.percentage}
+        currentStage={progress.currentStage}
+        stages={progress.stages}
+        status={progress.status}
+        errorMessage={progress.errorMessage}
+        stats={progress.stats}
+        doneButtonText={progress.doneButtonText}
+        onDone={progress.handleDone}
+      />
     </div>
   );
 }

@@ -29,6 +29,8 @@ import {
   FileText,
   Activity,
 } from "lucide-react";
+import RealtimeProgressModal from "@/components/ui/RealtimeProgressModal";
+import { useProgressModal } from "@/lib/useProgressModal";
 
 interface InvestigationItem {
   id: string;
@@ -74,6 +76,7 @@ export default function InvestigationPage() {
   // Notes state
   const [noteInput, setNoteInput] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const progress = useProgressModal();
 
   async function loadData() {
     try {
@@ -168,16 +171,36 @@ export default function InvestigationPage() {
 
   async function handleRunAnalysis() {
     if (!selectedInv) return;
+    progress.startProgress({
+      title: "Root Cause Variance Analysis",
+      subtitle: `Investigating metric '${selectedInv.metric}' across '${selectedInv.dimension}'`,
+      stages: [
+        "Loading analytical fact and dimension tables",
+        "Executing DuckDB variance decomposition",
+        "Quantifying driver contributions & shifts",
+        "Generating investigation evidence & findings",
+      ],
+      doneButtonText: "View Evidence",
+    });
+
     try {
       setAnalyzing(true);
+      progress.setProgressStage(0, 25, "Loading analytical fact and dimension tables");
+      await new Promise((r) => setTimeout(r, 150));
+
+      progress.setProgressStage(1, 55, "Executing DuckDB variance decomposition");
       const res = await api.post(`/investigations/${selectedInv.id}/analyze`, null, {
         params: activeWorkspace?.workspace_id ? { workspace_id: activeWorkspace.workspace_id } : {},
       });
+
+      progress.setProgressStage(2, 85, "Generating investigation evidence & findings");
       const updated: InvestigationItem = res.data?.investigation || selectedInv;
       setSelectedInv(updated);
       setInvestigations((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
-    } catch (err) {
-      alert("Analysis execution failed: " + (err instanceof Error ? err.message : "Unknown error"));
+
+      progress.completeProgress(undefined, "Root cause analysis complete!");
+    } catch (err: any) {
+      progress.failProgress(err.message || "Analysis execution failed.");
     } finally {
       setAnalyzing(false);
     }
@@ -652,6 +675,21 @@ export default function InvestigationPage() {
           </div>
         </div>
       )}
+
+      <RealtimeProgressModal
+        isOpen={progress.isOpen}
+        onClose={progress.closeModal}
+        title={progress.title}
+        subtitle={progress.subtitle}
+        percentage={progress.percentage}
+        currentStage={progress.currentStage}
+        stages={progress.stages}
+        status={progress.status}
+        errorMessage={progress.errorMessage}
+        stats={progress.stats}
+        doneButtonText={progress.doneButtonText}
+        onDone={progress.handleDone}
+      />
     </div>
   );
 }

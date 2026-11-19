@@ -147,19 +147,32 @@ def run_workspace_zip_pipeline(
                     raise ValueError(f"ZIP entry '{member}' contains unsafe path traversal.")
             zip_ref.extractall(tmp_extract_dir)
 
+        # Recursively extract any nested .zip archives found
+        for root, _, files in os.walk(tmp_extract_dir):
+            for fn in files:
+                if fn.lower().endswith(".zip") and not fn.startswith("."):
+                    nested_zip_path = Path(root) / fn
+                    try:
+                        nested_target = Path(root) / f"extracted_{nested_zip_path.stem}"
+                        nested_target.mkdir(exist_ok=True)
+                        with zipfile.ZipFile(nested_zip_path, "r") as sub_ref:
+                            sub_ref.extractall(nested_target)
+                    except Exception as nerr:
+                        logger.warning("[ZipPipeline] Nested zip extraction warning for %s: %s", fn, nerr)
+
         # 3. Discover tabular dataset files
         current_stage = "Tabular Dataset Discovery"
         data_files = []
         for root, _, files in os.walk(tmp_extract_dir):
             for fn in files:
-                if fn.startswith(".") or fn.startswith("__"):
+                if fn.startswith(".") or fn.startswith("__") or fn.startswith("~"):
                     continue
                 ext = Path(fn).suffix.lower()
-                if ext in (".csv", ".xlsx", ".parquet", ".json"):
+                if ext in (".csv", ".xlsx", ".xls", ".parquet", ".json"):
                     data_files.append(Path(root) / fn)
 
         if not data_files:
-            raise ValueError("No supported datasets (.csv, .xlsx, .parquet) were found inside the ZIP archive.")
+            raise ValueError("No supported datasets (.csv, .xlsx, .xls, .parquet, .json) were found inside the ZIP archive.")
 
         # Sort files deterministically
         data_files.sort(key=lambda p: p.name.lower())
@@ -170,12 +183,26 @@ def run_workspace_zip_pipeline(
         db = SessionLocal()
         con = DuckDBEngine.get_connection()
         tables_summary = []
+        succeeded_files = []
+        failed_files = []
+        seen_table_names = set()
+        precomputed_profiles = {}
         detected_domain = "Generic Business"
 
         # 4. SINGLE-PASS conversion, classification, profiling, and DuckDB registration
         current_stage = "Table Conversion & Profiling"
         for idx, df_path in enumerate(data_files):
-            table_name = df_path.stem.lower().replace("-", "_").replace(" ", "_")
+            # Disambiguate duplicate table names across folders
+            raw_base = df_path.stem.lower().replace("-", "_").replace(" ", "_").strip("_")
+            if not raw_base or raw_base.startswith("."):
+                raw_base = f"table_{idx + 1}"
+            table_name = raw_base
+            counter = 1
+            while table_name in seen_table_names:
+                table_name = f"{raw_base}_{counter}"
+                counter += 1
+            seen_table_names.add(table_name)
+
             unique_dataset_id = f"{ws_id}__{table_name}"
 
             progress_pct = 30 + int((idx / total_files) * 45)
@@ -183,105 +210,129 @@ def run_workspace_zip_pipeline(
             IngestionJobService.update_job(job_id, JobState.PROCESSING, progress_pct, message=step_msg)
             EnterpriseWorkspaceManager.update_processing_status(ws_id, "PROCESSING", progress_pct, step_msg)
 
-            # Convert to Parquet EXACTLY ONCE
-            parquet_path = GenericDataLoader.convert_to_parquet(df_path, unique_dataset_id)
+            try:
+                # Pre-check: handle empty files gracefully
+                if df_path.stat().st_size == 0:
+                    raise ValueError(f"File '{df_path.name}' is empty (0 bytes)")
 
-            # First table: classify domain & initialize workspace metadata
-            if idx == 0:
-                domain_res = DatasetDomainClassifier.classify(parquet_path, df_path.name)
-                detected_domain = domain_res.get("domain", "Generic Business")
+                # Convert to Parquet EXACTLY ONCE
+                parquet_path = GenericDataLoader.convert_to_parquet(df_path, unique_dataset_id)
 
-                EnterpriseWorkspaceManager.create_or_get_workspace(
-                    ws_id, ws_title, industry=detected_domain, created_by=created_by
-                )
-                EnterpriseWorkspaceManager.add_sha256_hash(ws_id, file_sha256)
+                # First successful table: classify domain & initialize workspace metadata
+                if len(succeeded_files) == 0:
+                    domain_res = DatasetDomainClassifier.classify(parquet_path, df_path.name)
+                    detected_domain = domain_res.get("domain", "Generic Business")
 
+                    EnterpriseWorkspaceManager.create_or_get_workspace(
+                        ws_id, ws_title, industry=detected_domain, created_by=created_by
+                    )
+                    EnterpriseWorkspaceManager.add_sha256_hash(ws_id, file_sha256)
+
+                    try:
+                        mongo_workspaces.update_one(
+                            {"workspace_id": ws_id},
+                            {
+                                "$set": {
+                                    "workspace_id": ws_id,
+                                    "name": ws_title,
+                                    "industry": detected_domain,
+                                    "domain": detected_domain,
+                                    "sha256_hash": file_sha256,
+                                    "created_by": created_by,
+                                    "updated_at": datetime.now(UTC).isoformat(),
+                                }
+                            },
+                            upsert=True,
+                        )
+                    except Exception as mongo_exc:
+                        logger.warning("[MongoDB Workspace Metadata] %s", mongo_exc)
+
+                # Profile dataset
+                profile = SemanticDataProfiler.profile(parquet_path)
+                precomputed_profiles[str(parquet_path)] = profile
+                cols = [
+                    {"name": c, "type": profile["columns"][c].get("inferred_type", "VARCHAR")}
+                    for c in profile["columns"]
+                ]
+                row_cnt = profile.get("total_rows", 0)
+
+                # Save dataset metadata in SQLite
                 try:
-                    mongo_workspaces.update_one(
-                        {"workspace_id": ws_id},
+                    resolved_user_id = user.get("id") or user.get("user_id") if user else None
+                    user_email = user.get("email") if user else created_by
+                    save_dataset(
+                        db=db,
+                        filename=df_path.name,
+                        file_path=str(parquet_path),
+                        dataset_type=detected_domain,
+                        rows=row_cnt,
+                        columns=len(cols),
+                        file_type=df_path.suffix.lstrip(".").lower(),
+                        file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0,
+                        user_id=resolved_user_id,
+                        user_email=user_email,
+                    )
+                except Exception as e:
+                    logger.warning("[Workspace DB Save Warning] %s: %s", table_name, e)
+
+                # Save dataset metadata in MongoDB
+                try:
+                    mongo_datasets.update_one(
+                        {"file_path": str(parquet_path)},
                         {
                             "$set": {
+                                "filename": df_path.name,
+                                "file_path": str(parquet_path),
+                                "dataset_type": detected_domain,
+                                "rows": row_cnt,
+                                "columns": len(cols),
+                                "file_type": df_path.suffix.lstrip(".").lower(),
                                 "workspace_id": ws_id,
-                                "name": ws_title,
-                                "industry": detected_domain,
-                                "domain": detected_domain,
-                                "sha256_hash": file_sha256,
-                                "created_by": created_by,
-                                "updated_at": datetime.now(UTC).isoformat(),
+                                "user_id": user.get("id") or user.get("user_id") if user else None,
+                                "user_email": user.get("email") if user else created_by,
+                                "uploaded_at": datetime.now(UTC).isoformat(),
                             }
                         },
                         upsert=True,
                     )
                 except Exception as mongo_exc:
-                    logger.warning("[MongoDB Workspace Metadata] %s", mongo_exc)
+                    logger.warning("[MongoDB Dataset Metadata] %s", mongo_exc)
 
-            # Profile dataset
-            profile = SemanticDataProfiler.profile(parquet_path)
-            cols = [
-                {"name": c, "type": profile["columns"][c].get("inferred_type", "VARCHAR")}
-                for c in profile["columns"]
-            ]
-            row_cnt = profile.get("total_rows", 0)
+                # DuckDB Table Registration
+                current_stage = f"DuckDB Table Registration ({table_name})"
+                try:
+                    from app.database.duckdb_engine import _validate_identifier, _validate_parquet_path
+                    safe_table = _validate_identifier(table_name)
+                    safe_path = _validate_parquet_path(parquet_path)
+                    con.execute(f"CREATE OR REPLACE TABLE \"{safe_table}\" AS SELECT * FROM read_parquet('{safe_path}')")
+                except Exception as duck_err:
+                    logger.warning("[DuckDB Workspace Ingest Warning] %s: %s", table_name, duck_err)
 
-            # Save dataset metadata in SQLite
-            try:
-                resolved_user_id = user.get("id") or user.get("user_id") if user else None
-                user_email = user.get("email") if user else created_by
-                save_dataset(
-                    db=db,
-                    filename=df_path.name,
-                    file_path=str(parquet_path),
-                    dataset_type=detected_domain,
-                    rows=row_cnt,
-                    columns=len(cols),
-                    file_type=df_path.suffix.lstrip(".").lower(),
-                    file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0,
-                    user_id=resolved_user_id,
-                    user_email=user_email,
-                )
-            except Exception as e:
-                logger.warning("[Workspace DB Save Warning] %s: %s", table_name, e)
+                EnterpriseWorkspaceManager.register_table(ws_id, table_name, cols, row_cnt, str(parquet_path))
 
-            # Save dataset metadata in MongoDB
-            try:
-                mongo_datasets.update_one(
-                    {"file_path": str(parquet_path)},
-                    {
-                        "$set": {
-                            "filename": df_path.name,
-                            "file_path": str(parquet_path),
-                            "dataset_type": detected_domain,
-                            "rows": row_cnt,
-                            "columns": len(cols),
-                            "file_type": df_path.suffix.lstrip(".").lower(),
-                            "workspace_id": ws_id,
-                            "user_id": user.get("id") or user.get("user_id") if user else None,
-                            "user_email": user.get("email") if user else created_by,
-                            "uploaded_at": datetime.now(UTC).isoformat(),
-                        }
-                    },
-                    upsert=True,
-                )
-            except Exception as mongo_exc:
-                logger.warning("[MongoDB Dataset Metadata] %s", mongo_exc)
+                tables_summary.append({
+                    "table_name": table_name,
+                    "rows": row_cnt,
+                    "columns_count": len(cols)
+                })
+                succeeded_files.append({
+                    "filename": df_path.name,
+                    "table_name": table_name,
+                    "rows": row_cnt,
+                    "columns": len(cols)
+                })
+            except Exception as file_err:
+                logger.warning("[ZipPipeline] File '%s' failed conversion/profiling: %s", df_path.name, file_err)
+                failed_files.append({
+                    "filename": df_path.name,
+                    "table_name": table_name,
+                    "reason": str(file_err)
+                })
+                continue
 
-            # DuckDB Table Registration
-            current_stage = f"DuckDB Table Registration ({table_name})"
-            try:
-                from app.database.duckdb_engine import _validate_identifier, _validate_parquet_path
-                safe_table = _validate_identifier(table_name)
-                safe_path = _validate_parquet_path(parquet_path)
-                con.execute(f"CREATE OR REPLACE TABLE \"{safe_table}\" AS SELECT * FROM read_parquet('{safe_path}')")
-            except Exception as duck_err:
-                logger.warning("[DuckDB Workspace Ingest Warning] %s: %s", table_name, duck_err)
-
-            EnterpriseWorkspaceManager.register_table(ws_id, table_name, cols, row_cnt, str(parquet_path))
-
-            tables_summary.append({
-                "table_name": table_name,
-                "rows": row_cnt,
-                "columns_count": len(cols)
-            })
+        if not tables_summary:
+            error_details = "; ".join(f"{f['filename']}: {f['reason']}" for f in failed_files)
+            raise ValueError(f"All {len(data_files)} dataset(s) inside the ZIP archive failed to process: {error_details}")
 
         # 5. Build Semantic Model
         current_stage = "Building Executive Semantic Model"
@@ -304,7 +355,7 @@ def run_workspace_zip_pipeline(
             pass
 
         try:
-            build_semantic_model(workspace_id=ws_id, force_rebuild=True)
+            build_semantic_model(workspace_id=ws_id, force_rebuild=True, precomputed_profiles=precomputed_profiles)
         except Exception as sem_err:
             logger.warning("[ZipPipeline] Semantic model build warning: %s", sem_err)
 
@@ -339,17 +390,24 @@ def run_workspace_zip_pipeline(
 
         # 7. Complete Job
         total_rows = sum(t["rows"] for t in tables_summary)
+        summary_msg = f"Dataset fully ingested ({len(succeeded_files)} tables, {total_rows:,} rows)."
+        if failed_files:
+            summary_msg += f" Note: {len(failed_files)} file(s) skipped due to format/empty content."
+
         metrics = {
             "tables": len(tables_summary),
             "rows": total_rows,
             "domain": detected_domain,
             "tables_summary": tables_summary,
+            "succeeded_files": succeeded_files,
+            "failed_files": failed_files,
+            "failed_count": len(failed_files),
         }
         IngestionJobService.update_job(
             job_id,
             JobState.READY,
             100,
-            message="Dataset fully ingested and ready for executive intelligence",
+            message=summary_msg,
             metrics_update=metrics,
         )
         EnterpriseWorkspaceManager.update_processing_status(ws_id, "COMPLETED", 100, "AI Executive Insights Fully Prepared")
@@ -640,79 +698,109 @@ async def upload_workspace_folder(
     try:
         con = DuckDBEngine.get_connection()
         tables_summary = []
+        succeeded_files = []
+        failed_files = []
+        seen_table_names = set()
+        precomputed_profiles = {}
 
         for file in files:
             ext = Path(file.filename).suffix.lower()
-            if ext not in (".csv", ".xlsx", ".parquet", ".json"):
+            if ext not in (".csv", ".xlsx", ".xls", ".parquet", ".json"):
                 continue
 
-            tmp_path = Path(tempfile.mkdtemp()) / file.filename
-            content = await file.read()
-            with open(tmp_path, "wb") as f:
-                f.write(content)
-
-            table_name = Path(file.filename).stem.lower().replace("-", "_").replace(" ", "_")
-            unique_dataset_id = f"{ws_id}__{table_name}"
-            parquet_path = GenericDataLoader.convert_to_parquet(tmp_path, unique_dataset_id)
-            profile = SemanticDataProfiler.profile(parquet_path)
-
-            cols = [
-                {"name": c, "type": profile["columns"][c].get("inferred_type", "VARCHAR")}
-                for c in profile["columns"]
-            ]
-            row_cnt = profile.get("total_rows", 0)
+            raw_base = Path(file.filename).stem.lower().replace("-", "_").replace(" ", "_").strip("_")
+            table_name = raw_base or "table_1"
+            counter = 1
+            while table_name in seen_table_names:
+                table_name = f"{raw_base}_{counter}"
+                counter += 1
+            seen_table_names.add(table_name)
 
             try:
-                save_dataset(
-                    db=db,
-                    filename=file.filename,
-                    file_path=str(parquet_path),
-                    dataset_type="Folder Workspace",
-                    rows=row_cnt,
-                    columns=len(cols),
-                    file_type=ext.lstrip("."),
-                    file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0
-                )
-            except Exception as e:
-                logger.warning("[Folder DB Save Warning] %s", e)
+                tmp_dir = Path(tempfile.mkdtemp())
+                tmp_path = tmp_dir / file.filename
+                content = await file.read()
+                if len(content) == 0:
+                    raise ValueError(f"File '{file.filename}' is empty (0 bytes)")
+                with open(tmp_path, "wb") as f:
+                    f.write(content)
 
-            try:
-                mongo_datasets.update_one(
-                    {"file_path": str(parquet_path)},
-                    {
-                        "$set": {
-                            "filename": file.filename,
-                            "file_path": str(parquet_path),
-                            "dataset_type": "Folder Workspace",
-                            "rows": row_cnt,
-                            "columns": len(cols),
-                            "file_type": ext.lstrip("."),
-                            "workspace_id": ws_id,
-                            "uploaded_at": datetime.now(UTC).isoformat(),
-                        }
-                    },
-                    upsert=True,
-                )
-            except Exception as mongo_exc:
-                logger.warning("[MongoDB Dataset Metadata] %s", mongo_exc)
+                unique_dataset_id = f"{ws_id}__{table_name}"
+                parquet_path = GenericDataLoader.convert_to_parquet(tmp_path, unique_dataset_id)
+                profile = SemanticDataProfiler.profile(parquet_path)
+                precomputed_profiles[str(parquet_path)] = profile
 
-            from app.database.duckdb_engine import _validate_identifier, _validate_parquet_path
-            safe_table = _validate_identifier(table_name)
-            safe_path = _validate_parquet_path(parquet_path)
-            con.execute(f"CREATE OR REPLACE TABLE \"{safe_table}\" AS SELECT * FROM read_parquet('{safe_path}')")
-            EnterpriseWorkspaceManager.register_table(ws_id, table_name, cols, row_cnt, str(parquet_path))
+                cols = [
+                    {"name": c, "type": profile["columns"][c].get("inferred_type", "VARCHAR")}
+                    for c in profile["columns"]
+                ]
+                row_cnt = profile.get("total_rows", 0)
 
-            tables_summary.append({
-                "table_name": table_name,
-                "rows": row_cnt,
-                "columns_count": len(cols)
-            })
+                try:
+                    save_dataset(
+                        db=db,
+                        filename=file.filename,
+                        file_path=str(parquet_path),
+                        dataset_type="Folder Workspace",
+                        rows=row_cnt,
+                        columns=len(cols),
+                        file_type=ext.lstrip("."),
+                        file_size_bytes=parquet_path.stat().st_size if parquet_path.exists() else 0
+                    )
+                except Exception as e:
+                    logger.warning("[Folder DB Save Warning] %s", e)
+
+                try:
+                    mongo_datasets.update_one(
+                        {"file_path": str(parquet_path)},
+                        {
+                            "$set": {
+                                "filename": file.filename,
+                                "file_path": str(parquet_path),
+                                "dataset_type": "Folder Workspace",
+                                "rows": row_cnt,
+                                "columns": len(cols),
+                                "file_type": ext.lstrip("."),
+                                "workspace_id": ws_id,
+                                "uploaded_at": datetime.now(UTC).isoformat(),
+                            }
+                        },
+                        upsert=True,
+                    )
+                except Exception as mongo_exc:
+                    logger.warning("[MongoDB Dataset Metadata] %s", mongo_exc)
+
+                from app.database.duckdb_engine import _validate_identifier, _validate_parquet_path
+                safe_table = _validate_identifier(table_name)
+                safe_path = _validate_parquet_path(parquet_path)
+                con.execute(f"CREATE OR REPLACE TABLE \"{safe_table}\" AS SELECT * FROM read_parquet('{safe_path}')")
+                EnterpriseWorkspaceManager.register_table(ws_id, table_name, cols, row_cnt, str(parquet_path))
+
+                tables_summary.append({
+                    "table_name": table_name,
+                    "rows": row_cnt,
+                    "columns_count": len(cols)
+                })
+                succeeded_files.append({
+                    "filename": file.filename,
+                    "table_name": table_name,
+                    "rows": row_cnt,
+                    "columns": len(cols)
+                })
+            except Exception as file_err:
+                logger.warning("[Folder Ingestion] File '%s' failed: %s", file.filename, file_err)
+                failed_files.append({"filename": file.filename, "reason": str(file_err)})
+                continue
+
+        if not tables_summary:
+            error_details = "; ".join(f"{f['filename']}: {f['reason']}" for f in failed_files)
+            raise ValueError(f"All {len(files)} file(s) failed ingestion: {error_details}")
 
         EnterpriseWorkspaceManager.set_active_workspace(ws_id)
         from app.semantic_model.engine import invalidate_semantic_model_cache, build_semantic_model
         invalidate_semantic_model_cache()
         _STRUCTURE_CACHE.clear()
-        unified_model = build_semantic_model(workspace_id=ws_id, force_rebuild=True)
+        unified_model = build_semantic_model(workspace_id=ws_id, force_rebuild=True, precomputed_profiles=precomputed_profiles)
 
         from app.intelligence.dataset_intelligence_layer import DatasetIntelligenceLayer
         primary_parquet = None
@@ -744,6 +832,8 @@ async def upload_workspace_folder(
             "active_workspace": ws_id,
             "total_tables_ingested": len(tables_summary),
             "tables": tables_summary,
+            "succeeded_files": succeeded_files,
+            "failed_files": failed_files,
             "semantic_model": unified_model,
             "intelligence": intelligence_result.to_dict() if intelligence_result else None,
         }

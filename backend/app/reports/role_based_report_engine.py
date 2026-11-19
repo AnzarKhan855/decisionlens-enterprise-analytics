@@ -15,6 +15,9 @@ def _ensure_list(value: Any) -> list:
     if isinstance(value, list):
         return value
     if isinstance(value, dict):
+        for k in ["opportunity_portfolio", "top_5", "action_plan", "items", "data", "list", "scenarios"]:
+            if isinstance(value.get(k), list):
+                return value[k]
         return [value]
     if value is None:
         return []
@@ -387,7 +390,7 @@ class RoleBasedReportEngine:
         predictions = _ensure_list(sections.get("predictions", []))
         recommendations = _ensure_list(sections.get("recommended_actions", []))
         risks = _ensure_list(sections.get("risks", []))
-        opportunities = sections.get("opportunities", [])
+        opportunities = _ensure_list(sections.get("opportunities", []))
 
         sales_kpis = []
         sales_keywords = ["revenue", "sales", "conversion", "pipeline", "deal", "close", "quota", "target", "win", "loss", "opportunity"]

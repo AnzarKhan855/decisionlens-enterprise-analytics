@@ -33,16 +33,13 @@ def _get_report_data(dataset_id: Optional[str] = None):
         except Exception:
             pass
 
-        if active_ws and active_ws != "latest":
-            from app.database.storage import ParquetStorageManager
-            p_path = ParquetStorageManager.get_parquet_path_for_workspace(active_ws)
-            if not p_path or not p_path.exists():
-                raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
-
         dashboard, analytics_result = get_dynamic_dashboard(
             dataset_id=dataset_id,
             return_analytics_result=True
         )
+
+        if dataset_id and isinstance(dashboard, dict) and not dashboard.get("workspace_exists") and analytics_result is None:
+            raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
 
         from app.semantic_model.core import SemanticModel
 
@@ -53,6 +50,16 @@ def _get_report_data(dataset_id: Optional[str] = None):
             sm = SemanticModel(
                 workspace_id=dataset_id or "latest",
                 domain=dashboard.get("dataset_type", "Generic Business") if isinstance(dashboard, dict) else "Generic Business",
+                dataset_type=dashboard.get("dataset_type", "Unknown") if isinstance(dashboard, dict) else "Unknown",
+            )
+
+        if analytics_result is None:
+            from app.schemas.analytics import AnalyticsResult, HealthScore
+            analytics_result = AnalyticsResult(
+                domain=getattr(sm, "domain", "Generic Business"),
+                dataset_type=getattr(sm, "dataset_type", "Unknown"),
+                semantic_model=sm,
+                health_score=HealthScore(overall_score=dashboard.get("health_score", 85.0) or 85.0, grade="B", status="Good", breakdown=[]),
             )
 
         predictions = getattr(analytics_result, "predictions", []) if analytics_result else []
@@ -109,16 +116,13 @@ def _get_role_report_data(dataset_id: Optional[str] = None, audience: str = "CEO
         except Exception:
             pass
 
-        if active_ws and active_ws != "latest":
-            from app.database.storage import ParquetStorageManager
-            p_path = ParquetStorageManager.get_parquet_path_for_workspace(active_ws)
-            if not p_path or not p_path.exists():
-                raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
-
         dashboard, analytics_result = get_dynamic_dashboard(
             dataset_id=dataset_id,
             return_analytics_result=True
         )
+
+        if dataset_id and isinstance(dashboard, dict) and not dashboard.get("workspace_exists") and analytics_result is None:
+            raise HTTPException(status_code=404, detail=f"No dataset or report found for workspace '{active_ws}'.")
 
         sm = None
         if analytics_result and getattr(analytics_result, "semantic_model", None):
@@ -338,8 +342,8 @@ def export_docx(dataset_id: Optional[str] = None, workspace_id: Optional[str] = 
         docx_bytes = DOCXExporter.export(report, title=title)
         return Response(
             content=docx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=decisionlens_{audience.lower().replace(' ', '_')}_report.xlsx"},
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename=decisionlens_{audience.lower().replace(' ', '_')}_report.docx"},
         )
     except Exception as e:
         logger.error("[DOCX Export] %s", e)

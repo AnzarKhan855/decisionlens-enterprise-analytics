@@ -1,6 +1,15 @@
 import axios, { type AxiosResponse, type AxiosRequestConfig } from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+function resolveApiBaseUrl(): string {
+  let raw = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+  raw = raw.trim().replace(/\/+$/, "");
+  if (!raw.endsWith("/api/v1") && !raw.includes("/api/")) {
+    raw = `${raw}/api/v1`;
+  }
+  return raw;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 export { API_BASE_URL };
 
 interface CacheEntry<T> {
@@ -176,6 +185,10 @@ api.interceptors.response.use(
       error.errorCategory = "NETWORK_ERROR" as ErrorCategory;
       error.userFriendlyMessage = "Unable to connect to the DecisionLens API. Please verify network connectivity.";
       error.message = "Unable to connect to the server. Please ensure the backend is running.";
+    } else if (status === 502 || status === 503) {
+      error.errorCategory = "SERVER_ERROR" as ErrorCategory;
+      error.userFriendlyMessage = "The DecisionLens analytics backend is spinning up on Render. Retrying connection...";
+      error.message = error.userFriendlyMessage;
     } else if (status && status >= 500) {
       error.errorCategory = "SERVER_ERROR" as ErrorCategory;
       error.userFriendlyMessage = cleanErrorMsg || "An internal server error occurred. Please try again later.";

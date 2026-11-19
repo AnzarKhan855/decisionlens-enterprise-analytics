@@ -5,6 +5,8 @@ import Link from "next/link";
 import api from "@/lib/api";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ErrorState from "@/components/ui/ErrorState";
+import RealtimeProgressModal from "@/components/ui/RealtimeProgressModal";
+import { useProgressModal } from "@/lib/useProgressModal";
 import {
   Layers,
   Database,
@@ -107,6 +109,46 @@ export default function WorkspaceStructurePage() {
   const [intelligence, setIntelligence] = useState<DatasetIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const progress = useProgressModal();
+
+  async function handleRebuildSemanticModel() {
+    const wsId = data?.workspace_id || await getActiveWorkspaceId();
+    if (!wsId) return;
+
+    progress.startProgress({
+      title: "Building Executive Semantic Model",
+      subtitle: `Analyzing multi-table schemas for workspace '${wsId}'`,
+      stages: [
+        "Scanning Parquet storage and table schemas",
+        "Classifying fact, dimension, and lookup roles",
+        "Discovering foreign-key relationships and join paths",
+        "Building semantic business glossary and diagrams",
+      ],
+      doneButtonText: "View Model",
+    });
+
+    try {
+      progress.setProgressStage(0, 20, "Scanning Parquet storage and table schemas");
+      await new Promise((r) => setTimeout(r, 150));
+
+      progress.setProgressStage(1, 50, "Classifying fact, dimension, and lookup roles");
+      const res = await api.post(`/semantic-model/workspace/${wsId}/rebuild`);
+
+      progress.setProgressStage(2, 85, "Building semantic business glossary and diagrams");
+      await fetchStructure();
+      await fetchIntelligence();
+
+      progress.completeProgress(
+        {
+          domain: res.data?.domain,
+          tables: res.data?.tables?.length || 0,
+        },
+        "Semantic model synthesized successfully!"
+      );
+    } catch (err: any) {
+      progress.failProgress(err.message || "Failed to rebuild semantic model.");
+    }
+  }
 
   useEffect(() => {
     fetchStructure();
@@ -185,6 +227,13 @@ export default function WorkspaceStructurePage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleRebuildSemanticModel}
+            className="px-4 py-2.5 bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-2"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Rebuild Model</span>
+          </button>
           <button
             onClick={fetchStructure}
             className="px-4 py-2.5 bg-surface/10 hover:bg-surface/20 text-text-primary text-xs font-bold rounded-xl transition-all border border-border-color/60 flex items-center gap-2"
@@ -498,6 +547,20 @@ export default function WorkspaceStructurePage() {
           <p className="text-xs text-text-muted italic">No relationships detected.</p>
         )}
       </div>
+      <RealtimeProgressModal
+        isOpen={progress.isOpen}
+        onClose={progress.closeModal}
+        title={progress.title}
+        subtitle={progress.subtitle}
+        percentage={progress.percentage}
+        currentStage={progress.currentStage}
+        stages={progress.stages}
+        status={progress.status}
+        errorMessage={progress.errorMessage}
+        stats={progress.stats}
+        doneButtonText={progress.doneButtonText}
+        onDone={progress.handleDone}
+      />
     </div>
   );
 }

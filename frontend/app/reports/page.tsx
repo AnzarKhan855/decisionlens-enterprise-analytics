@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -22,9 +22,18 @@ import {
   SlidersHorizontal,
   TrendingUp,
   BarChart3,
+  Download,
+  Sparkles,
+  CheckCircle2,
+  ShieldCheck,
+  PieChart,
+  Activity,
+  Layers,
 } from "lucide-react";
 import api, { API_BASE_URL } from "@/lib/api";
 import type { MetricObject } from "@/lib/types";
+import RealtimeProgressModal from "@/components/ui/RealtimeProgressModal";
+import { useProgressModal } from "@/lib/useProgressModal";
 
 function safeString(val: unknown): string {
   if (typeof val === "string") return val;
@@ -189,12 +198,94 @@ export default function SmartReportsPage() {
   const [selectedType, setSelectedType] = useState("all");
   const [dateRange, setDateRange] = useState("30d");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [exportingFormat, setExportingFormat] = useState<string | null>(null);
+  const progress = useProgressModal();
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("report_recent_searches");
       return stored ? JSON.parse(stored) : [];
     } catch { return []; }
   });
+
+  async function handleExport(format: "pdf" | "xlsx" | "docx" | "csv" | "summary") {
+    const targetWs = activeWs?.workspace_id;
+    setExportingFormat(format);
+    try {
+      const endpoint =
+        format === "pdf" ? "/reports/export/pdf" :
+        format === "xlsx" ? "/reports/export/xlsx" :
+        format === "docx" ? "/reports/export/docx" :
+        format === "csv" ? "/reports/export/kpi-csv" :
+        "/reports/export/summary";
+
+      const res = await api.get(endpoint, {
+        params: targetWs ? { workspace_id: targetWs } : {},
+        responseType: format === "summary" ? "json" : "blob",
+      });
+
+      const ext = format === "summary" ? "json" : format;
+      const blob = format === "summary"
+        ? new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" })
+        : new Blob([res.data]);
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `decisionlens_${format}_report_${activeWs?.workspace_id || "enterprise"}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      console.error("Export error:", err);
+      alert("Export failed: " + (err.response?.data?.detail || err.message || "Unknown error"));
+    } finally {
+      setExportingFormat(null);
+    }
+  }
+
+  async function handleRegenerate() {
+    progress.startProgress({
+      title: "Synthesizing Board Report",
+      subtitle: `Analyzing dataset in '${wsName}'`,
+      stages: [
+        "Extracting workspace data & schema",
+        "Calculating KPIs & financial health",
+        "Analyzing revenue trends & segments",
+        "Evaluating risk matrix & anomalies",
+        "Formatting boardroom deliverable",
+      ],
+      doneButtonText: "View Deliverable",
+    });
+
+    try {
+      progress.setProgressStage(0, 20, "Extracting workspace data & schema");
+      await new Promise((r) => setTimeout(r, 200));
+
+      progress.setProgressStage(1, 45, "Calculating KPIs & financial health");
+      const targetWsId = activeWs?.workspace_id;
+      const reportRes = await api.get("/reports", {
+        params: targetWsId ? { workspace_id: targetWsId } : {},
+      });
+
+      progress.setProgressStage(2, 70, "Analyzing revenue trends & segments");
+      await new Promise((r) => setTimeout(r, 200));
+
+      progress.setProgressStage(3, 90, "Formatting boardroom deliverable");
+      if (reportRes.data) {
+        setReport(reportRes.data);
+        progress.completeProgress({
+          domain: reportRes.data.domain,
+          tables: activeWs?.tables?.length || 1,
+          rows: reportRes.data.sections?.executive_summary?.total_records || 1000,
+        }, "Board Report Synthesized Successfully!");
+      } else {
+        progress.failProgress("Failed to generate report data.");
+      }
+    } catch (err: any) {
+      progress.failProgress(err.response?.data?.detail || err.message || "Failed to generate report.");
+    }
+  }
 
   useEffect(() => {
     fetchAll();
@@ -452,22 +543,58 @@ export default function SmartReportsPage() {
             Generated for {wsName} on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => window.print()}
-            className="px-5 py-2.5 bg-background hover:bg-surface-muted text-text-primary text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-2"
-            aria-label="Print or download report as PDF"
+            onClick={() => handleExport("pdf")}
+            disabled={exportingFormat !== null}
+            className="px-3.5 py-2 bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+            title="Download executive PDF deliverable"
           >
-            <Printer className="w-4 h-4 text-primary-400" />
-            <span>Print / PDF</span>
+            <FileText className="w-3.5 h-3.5" />
+            <span>{exportingFormat === "pdf" ? "Exporting..." : "PDF"}</span>
           </button>
           <button
-            onClick={fetchAll}
-            className="px-4 py-2.5 bg-surface hover:bg-surface-muted text-text-secondary text-xs font-bold rounded-xl border border-border-color transition-all flex items-center gap-2"
-            aria-label="Refresh report data"
+            onClick={() => handleExport("xlsx")}
+            disabled={exportingFormat !== null}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+            title="Download multi-tab Excel financial model"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>{exportingFormat === "xlsx" ? "Exporting..." : "Excel (XLSX)"}</span>
+          </button>
+          <button
+            onClick={() => handleExport("docx")}
+            disabled={exportingFormat !== null}
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+            title="Download editable Word report"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>{exportingFormat === "docx" ? "Exporting..." : "Word (DOCX)"}</span>
+          </button>
+          <button
+            onClick={() => handleExport("csv")}
+            disabled={exportingFormat !== null}
+            className="px-3 py-2 bg-surface hover:bg-surface-muted text-text-secondary text-xs font-bold rounded-xl border border-border-color transition-all flex items-center gap-1.5 disabled:opacity-50"
+            title="Download raw KPI CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>CSV</span>
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="px-3 py-2 bg-surface hover:bg-surface-muted text-text-secondary text-xs font-bold rounded-xl border border-border-color transition-all flex items-center gap-1.5"
+            title="Print or save as PDF"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print</span>
+          </button>
+          <button
+            onClick={handleRegenerate}
+            className="px-4 py-2 bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+            title="Synthesize live intelligence"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Regenerate</span>
           </button>
         </div>
       </div>
@@ -1030,6 +1157,20 @@ export default function SmartReportsPage() {
           </div>
         </div>
       </div>
+      <RealtimeProgressModal
+        isOpen={progress.isOpen}
+        onClose={progress.closeModal}
+        title={progress.title}
+        subtitle={progress.subtitle}
+        percentage={progress.percentage}
+        currentStage={progress.currentStage}
+        stages={progress.stages}
+        status={progress.status}
+        errorMessage={progress.errorMessage}
+        stats={progress.stats}
+        doneButtonText={progress.doneButtonText}
+        onDone={progress.handleDone}
+      />
     </div>
   );
 }

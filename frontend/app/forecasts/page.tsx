@@ -38,6 +38,8 @@ import {
 } from "lucide-react";
 import { formatBusinessValue, normalizeConfidence } from "@/lib/formatting";
 import type { MetricObject } from "@/lib/types";
+import RealtimeProgressModal from "@/components/ui/RealtimeProgressModal";
+import { useProgressModal } from "@/lib/useProgressModal";
 import { getMetricNumericValue, getMetricDisplayValue } from "@/lib/types";
 
 interface AnalyticsResultPayload {
@@ -180,6 +182,36 @@ interface DetectionPayload {
 
 export default function ForecastsPage() {
   const [loading, setLoading] = useState(true);
+  const progress = useProgressModal();
+
+  async function handleRerunForecast() {
+    progress.startProgress({
+      title: "Executing Enterprise Predictive Forecast",
+      subtitle: `Fitting statistical models on '${analytics?.domain || "workspace"}'`,
+      stages: [
+        "Analyzing temporal continuity and seasonality",
+        "Evaluating ARIMA, Holt-Winters, and linear trends",
+        "Calculating 95% prediction intervals and confidence bounds",
+        "Synthesizing management forecast actions",
+      ],
+      doneButtonText: "View Predictions",
+    });
+
+    try {
+      progress.setProgressStage(0, 20, "Analyzing temporal continuity and seasonality");
+      await new Promise((r) => setTimeout(r, 150));
+
+      progress.setProgressStage(1, 50, "Evaluating ARIMA, Holt-Winters, and linear trends");
+      await loadForecast();
+
+      progress.setProgressStage(2, 85, "Synthesizing management forecast actions");
+      await new Promise((r) => setTimeout(r, 150));
+
+      progress.completeProgress(undefined, "Forecasting models updated successfully!");
+    } catch (err: any) {
+      progress.failProgress(err.message || "Failed to execute forecast.");
+    }
+  }
   const [error, setError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsResultPayload | null>(null);
   const [detection, setDetection] = useState<DetectionPayload | null>(null);
@@ -349,6 +381,14 @@ export default function ForecastsPage() {
             ))}
           </div>
 
+          <button
+            onClick={handleRerunForecast}
+            disabled={loading}
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-2"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Re-run Forecaster</span>
+          </button>
           <button
             onClick={loadForecast}
             disabled={loading}
@@ -843,6 +883,20 @@ export default function ForecastsPage() {
           )}
         </div>
       )}
+      <RealtimeProgressModal
+        isOpen={progress.isOpen}
+        onClose={progress.closeModal}
+        title={progress.title}
+        subtitle={progress.subtitle}
+        percentage={progress.percentage}
+        currentStage={progress.currentStage}
+        stages={progress.stages}
+        status={progress.status}
+        errorMessage={progress.errorMessage}
+        stats={progress.stats}
+        doneButtonText={progress.doneButtonText}
+        onDone={progress.handleDone}
+      />
     </main>
   );
 }

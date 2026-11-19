@@ -247,12 +247,14 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
             parquet_path = _find_best_parquet(db, target_workspace_id=target_ws_id)
 
         if not parquet_path or not parquet_path.exists():
-            has_workspace = bool(EnterpriseWorkspaceManager.get_active_workspace_id())
+            resolved_ws = target_ws_id or EnterpriseWorkspaceManager.get_active_workspace_id()
+            has_workspace = bool(resolved_ws)
             if not has_workspace:
                 message = "No workspaces yet. Create a workspace by uploading a CSV, Excel, or Parquet file to begin analysis."
             else:
                 message = "No dataset available in the current workspace. Upload a CSV, Excel, or Parquet file to generate executive analytics."
             res = {
+                "workspace_id": resolved_ws or "",
                 "workspace_exists": has_workspace,
                 "message": message,
                 "kpis": [],
@@ -262,7 +264,7 @@ def get_dynamic_dashboard(dataset_id: Optional[str] = None, workspace_id: Option
                 "insights": [],
                 "executive_briefing": {
                     "greeting": "No Workspaces Yet" if not has_workspace else "No Data Available",
-                    "business_name": EnterpriseWorkspaceManager.get_active_workspace_id() or "Active Workspace",
+                    "business_name": resolved_ws or "Active Workspace",
                     "health_score": 0,
                     "primary_metric": "N/A",
                     "status": "No Data",

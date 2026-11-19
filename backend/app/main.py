@@ -95,10 +95,14 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"^https:\/\/decisionlens-enterprise-analytics(-[a-zA-Z0-9_-]+)?\.vercel\.app$",
+    allow_origin_regex=r"^https:\/\/(?:[a-zA-Z0-9_-]+\.)?decisionlens[a-zA-Z0-9_-]*\.vercel\.app$|^https:\/\/[a-zA-Z0-9_-]+-anzarkhan855s-projects\.vercel\.app$",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Workspace-Id", "X-Request-Id", "Accept", "Origin"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+    allow_headers=[
+        "Content-Type", "Authorization", "X-Workspace-Id", "X-Request-Id",
+        "Accept", "Origin", "Cache-Control", "Pragma", "Expires", "X-Requested-With"
+    ],
+    expose_headers=["X-Request-Id", "X-Response-Time-Ms"],
     max_age=86400,
 )
 
@@ -247,6 +251,12 @@ app.include_router(
     prefix="/api/v1",
     tags=["Business Memory & Reports"]
 )
+
+from app.api.v1.analytics import dashboard_router
+
+# Direct aliases for root and /api prefixes to prevent 404s when client omits /api/v1
+app.include_router(dashboard_router, prefix="", tags=["Dynamic Dashboard Aliases"])
+app.include_router(dashboard_router, prefix="/api", tags=["Dynamic Dashboard Aliases"])
 
 @app.get("/")
 def home():

@@ -125,7 +125,9 @@ def _build_error_response(
 
 import re
 
-_ALLOWED_ORIGIN_REGEX = re.compile(r"^https:\/\/decisionlens-enterprise-analytics(-[a-zA-Z0-9_-]+)?\.vercel\.app$")
+_ALLOWED_ORIGIN_REGEX = re.compile(
+    r"^https:\/\/(?:[a-zA-Z0-9_-]+\.)?decisionlens[a-zA-Z0-9_-]*\.vercel\.app$|^https:\/\/[a-zA-Z0-9_-]+-anzarkhan855s-projects\.vercel\.app$"
+)
 _EXPLICIT_ALLOWED_ORIGINS = {
     "https://decisionlens-enterprise-analytics.vercel.app",
     "http://localhost:3000",
@@ -142,11 +144,15 @@ def _apply_cors_headers_if_allowed(response: Response, request: Request) -> None
     if not origin:
         return
     clean_origin = origin.strip().rstrip("/")
-    if clean_origin in _EXPLICIT_ALLOWED_ORIGINS or _ALLOWED_ORIGIN_REGEX.match(clean_origin):
+    if clean_origin in _EXPLICIT_ALLOWED_ORIGINS or _ALLOWED_ORIGIN_REGEX.match(clean_origin) or ".vercel.app" in clean_origin:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Workspace-Id, X-Request-Id, Accept, Origin"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+        response.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization, X-Workspace-Id, X-Request-Id, Accept, Origin, "
+            "Cache-Control, Pragma, Expires, X-Requested-With"
+        )
+        response.headers["Access-Control-Expose-Headers"] = "X-Request-Id, X-Response-Time-Ms"
         response.headers["Vary"] = "Origin"
 
 
